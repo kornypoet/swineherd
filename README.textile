@@ -1,20 +1,44 @@
 h1. SwineHerd
 
-Swineherd is for running scripts and workflows on filesystems.
+h3. Script
 
-h3. Outline
+Given the Pig script @foo.pig.erb@:
+<pre><code>fips = LOAD '<%= in_path %>' AS (fips_id:int,state_name:chararray);
+DUMP fips;
+</code></pre>
 
-A @workflow@ is built with @script@ objects and ran on a @filesystem@.
+<pre><code>require 'swineherd'
+script = Swineherd::Script.new('foo.pig.erb',:in_path => 'fips_to_state.tsv')
+script.run(:map_tasks => 20,:run_mode => 'local') #uses the PigRunner based upon the filename extension
+</code></pre>
 
-h4. Script:
+Hadoop and Pig Jobconf settings can be specified at runtime or at a system/user wide level.:
 
-A script has the following
+@/etc/swineherd.yaml@
+<pre><code>
+:map_tasks: 10
+</code></pre>
+@~/swineherd.yaml@
+<pre><code>
+:map_tasks:15
+</code></pre>
 
-* @source@ - The source file used. These can be "Apache Pig":http://pig.apache.org/ scripts, "Wukong":http://github.com/infochimps/wukong scripts, even "R":http://www.r-project.org/ scripts. You can add your own scripts by subclassing the @script@ class. 
-* @input@ - An array of input paths.
-* @output@ - An array of output paths.
-* @options@ - A ruby hash of options used as command line args. Eg. {:foo => 'bar'}. How these options are mapped to command line arguments is up to the particular script class.
-* @attributes@ - A ruby hash of parameters used for variable substitution. Every script is assumed to be (but not required to be) an eruby template.
+The above @script.run@ will pass Hadoop and Pig settings through @PIG_OPTS@ and run the following command line: 
+
+<pre><code>
+ENV['PIG_OPTS'] = '-Dmapred.map.tasks=20'
+/usr/local/share/pig/bin/pig -x local /tmp/1325544799-4248-foo.pig
+</code></pre>
+
+The same script can be run using the swineherd executable:
+
+<pre><code>./swineherd --map_tasks=20 --run_mode=local --script_param.in_path=fips_to_state.tsv foo.pig.erb</code></pre>
+
+Script variables are specified using @--script_param@
+
+<pre><code>fips = LOAD 'fips_to_state.tsv' AS (fips_id:int,state_name:chararray);
+DUMP fips;
+</code></pre>
 
 h4. Workflow:
 
