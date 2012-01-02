@@ -1,10 +1,7 @@
 #!/usr/bin/env ruby
 
-$LOAD_PATH << 'lib'
-require 'swineherd/filesystem' ; include Swineherd
-require 'rubygems'
+require 'spec_helper'
 require 'yaml'
-require 'rspec'
 
 options      = YAML.load(File.read(File.dirname(__FILE__)+'/testcfg.yaml'))
 current_test = options['filesystem_to_test']
@@ -13,7 +10,7 @@ describe "A new filesystem" do
   before do
     @test_path   = "/tmp/rspec/test_path"
     @test_path2  = "/tmp/rspec/test_path2"
-    @test_string = "@('_')@" 
+    @test_string = "@('_')@"
     @fs = Swineherd::FileSystem.get(current_test)
   end
 

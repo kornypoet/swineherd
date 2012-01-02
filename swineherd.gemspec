@@ -53,7 +53,7 @@ Gem::Specification.new do |s|
     "tests/test_s3_filesystem.rb",
     "tests/testcfg.yaml"
   ]
-  s.homepage = %q{http://github.com/Ganglion/swineherd}
+  s.homepage = %q{http://github.com/infochimps/swineherd}
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
   s.rubygems_version = %q{1.3.7}
