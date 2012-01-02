@@ -1,7 +1,12 @@
 require 'rubygems'
-require 'configliere' ; Configliere.use(:commandline, :env_var, :define)
+require 'configliere' ; Configliere.use(:commandline, :env_var, :define,:config_file)
 require 'erubis'
 require 'rake'
+
+system_config = "/etc/swineherd.yaml"
+user_config   = File.join(ENV['HOME'], '.swineherd.yaml')
+Settings.read system_config if File.exists? system_config
+Settings.read user_config  if File.exists? user_config
 
 require 'swineherd/script'
 require 'swineherd/runner'
