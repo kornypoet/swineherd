@@ -7,23 +7,27 @@ Given the Pig script @foo.pig.erb@:
 DUMP fips;
 </code></pre>
 
+In the Ruby interpreter (irb):
 <pre><code>require 'swineherd'
 script = Swineherd::Script.new('foo.pig.erb',:in_path => 'fips_to_state.tsv')
 script.run(:map_tasks => 20,:run_mode => 'local') #uses the PigRunner based upon the filename extension
 </code></pre>
 
-Hadoop and Pig Jobconf settings can be specified at runtime or at a system/user wide level.:
+Hadoop and Pig Jobconf settings can be specified at runtime or at a system/user wide level:
 
 @/etc/swineherd.yaml@
-<pre><code>
-:map_tasks: 10
-</code></pre>
+<pre><code>:map_tasks: 10</code></pre>
 @~/swineherd.yaml@
-<pre><code>
-:map_tasks:15
+<pre><code>:map_tasks:15</code></pre>
+
+The above @script.run@ will interpolate the script variables,pass Hadoop and Pig settings through @PIG_OPTS@ and run the following script:
+
+@/tmp/1325544799-4248-foo.pig@
+<pre><code>fips = LOAD 'fips_to_state.tsv' AS (fips_id:int,state_name:chararray);
+DUMP fips;
 </code></pre>
 
-The above @script.run@ will pass Hadoop and Pig settings through @PIG_OPTS@ and run the following command line: 
+With this command line:
 
 <pre><code>
 ENV['PIG_OPTS'] = '-Dmapred.map.tasks=20'
@@ -36,9 +40,6 @@ The same script can be run using the swineherd executable:
 
 Script variables are specified using @--script_param@
 
-<pre><code>fips = LOAD 'fips_to_state.tsv' AS (fips_id:int,state_name:chararray);
-DUMP fips;
-</code></pre>
 
 h4. Workflow:
 
