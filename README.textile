@@ -29,8 +29,7 @@ DUMP fips;
 
 With this command line:
 
-<pre><code>
-ENV['PIG_OPTS'] = '-Dmapred.map.tasks=20'
+<pre><code>ENV['PIG_OPTS'] = '-Dmapred.map.tasks=20'
 /usr/local/share/pig/bin/pig -x local /tmp/1325544799-4248-foo.pig
 </code></pre>
 
