@@ -2,11 +2,10 @@ module Swineherd
 
   #
   # Methods for dealing with hadoop distributed file system (hdfs). This class
-  # requires that you run with JRuby as it makes use of the native java hadoop
+  # requires that you run with JRuby as it makes use of the native Java Hadoop
   # libraries.
   #
   class HadoopFileSystem
-
     include Swineherd::BaseFileSystem
 
     attr_accessor :conf, :hdfs
@@ -15,17 +14,9 @@ module Swineherd
     # Initialize a new hadoop file system, needs path to hadoop configuration
     #
     def initialize *args
-      check_and_set_environment
+      set_hadoop_environment if running_jruby?
       @conf = Java::org.apache.hadoop.conf.Configuration.new
       @hdfs = Java::org.apache.hadoop.fs.FileSystem.get(@conf)
-    end
-
-    #
-    # Make sure environment is sane then set up environment for use
-    #
-    def check_and_set_environment
-      check_env
-      set_env
     end
 
     def open path, mode="r", &blk
@@ -33,28 +24,33 @@ module Swineherd
     end
 
     def size path
-      lr(path).inject(0){|sz, f| sz += @hdfs.get_file_status(Path.new(f)).get_len}
+      lsr(path).inject(0){|sz, f| sz += @hdfs.get_file_status(Path.new(f)).get_len}
     end
 
-    #
-    # Recursively list paths
-    #
-    def lr path
+    #list directories recursively, similar to unix 'ls -R'
+    def lsr path
       paths = entries(path)
       if (paths && !paths.empty?)
-        paths.map{|e| lr(e)}.flatten
+        paths.map{|e| lsr(e)}.flatten
       else
         path
       end
     end
-    
+
     def rm path
+      @hdfs.delete(Path.new(path), false)
+    end
+
+    def rm_r path
       @hdfs.delete(Path.new(path), true)
-      [path]
     end
 
     def exists? path
       @hdfs.exists(Path.new(path))
+    end
+
+    def directory? path
+      @hdfs.get_file_status(Path.new(path)).is_dir?
     end
 
     def mv srcpath, dstpath
@@ -62,33 +58,16 @@ module Swineherd
     end
 
     def cp srcpath, dstpath
-      FileUtil.copy(@hdfs, Path.new(srcpath), @hdfs, Path.new(dstpath), false, @conf)
+      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(dstpath,@conf), Path.new(dstpath), false, @conf)
     end
 
-    def mkpath path
+    def mkdir_p path
       @hdfs.mkdirs(Path.new(path))
-      path
-    end
-
-    def type path
-      return "unknown" unless exists? path
-      status = @hdfs.get_file_status(Path.new(path))
-      return "directory" if status.is_dir?
-      "file"
-      # case
-      # when status.isFile then
-      #   return "file"
-      # when status.is_directory? then
-      #   return "directory"
-      # when status.is_symlink? then
-      #   return "symlink"
-      # end
     end
 
     def entries dirpath
-      return unless type(dirpath) == "directory"
-      list = @hdfs.list_status(Path.new(dirpath))
-      list.map{|path| path.get_path.to_s} rescue []
+#     return unless @hdfs.get_file_status(Path.new(path)).is_dir?
+      @hdfs.list_status(Path.new(dirpath)).map{|path| path.get_path.to_s}
     end
 
     #
@@ -176,25 +155,22 @@ module Swineherd
     end
 
     class HadoopFile
-      attr_accessor :path, :handle, :hdfs
+      attr_accessor :handle
 
       #
       # In order to open input and output streams we must pass around the hadoop fs object itself
       #
       def initialize path, mode, fs, &blk
-        @fs   = fs
-        @path = Path.new(path)
+        raise Errno::EISDIR,"#{path} is a directory" if directory?(path)
+        hdfs_path = Path.new(path)
         case mode
-        when "r" then
-          raise "#{@fs.type(path)} is not a readable file - #{path}" unless @fs.type(path) == "file"
-          @handle = @fs.hdfs.open(@path).to_io(&blk)
-        when "w" then
-          # Open path for writing
-          raise "Path #{path} is a directory." unless (@fs.type(path) == "file") || (@fs.type(path) == "unknown")
-          @handle = @fs.hdfs.create(@path).to_io.to_outputstream
+        when "r"
+          @handle = fs.hdfs.open(hdfs_path).to_io(&blk)
+        when "w"
+          @handle = fs.hdfs.create(hdfs_path).to_io.to_outputstream
           if block_given?
             yield self
-            self.close # muy muy importante
+            self.close
           end
         end
       end
@@ -209,10 +185,6 @@ module Swineherd
 
       def write string
         @handle.write(string.to_java_string.get_bytes)
-      end
-
-      def puts string
-        write(string+"\n")
       end
 
       def close
@@ -261,45 +233,39 @@ module Swineherd
     # end
     #
 
-    #
-    # Check that we are running with jruby, check for hadoop home. hadoop_home
-    # is preferentially set to the HADOOP_HOME environment variable if it's set,
-    # '/usr/local/share/hadoop' if HADOOP_HOME isn't defined, and
-    # '/usr/lib/hadoop' if '/usr/local/share/hadoop' doesn't exist. If all else
-    # fails inform the user that HADOOP_HOME really should be set.
-    #
-    def check_env
+    private
+
+    # Check that we are running with jruby, check for hadoop home.
+    def running_jruby?
       begin
         require 'java'
       rescue LoadError => e
         raise "\nJava not found, are you sure you're running with JRuby?\n" + e.message
       end
-      @hadoop_home = (ENV['HADOOP_HOME'] || '/usr/local/share/hadoop')
-      @hadoop_home = '/usr/lib/hadoop' unless File.exist? @hadoop_home
-      raise "\nHadoop installation not found, try setting HADOOP_HOME\n" unless File.exist? @hadoop_home
+      @hadoop_home = ENV['HADOOP_HOME']
+      raise "\nHadoop installation not found, try setting $HADOOP_HOME\n" unless File.exist? @hadoop_home
     end
 
     #
     # Place hadoop jars in class path, require appropriate jars, set hadoop conf
     #
-    def set_env
-      require 'java'
+    def set_hadoop_environment
+#      require 'java'
       @hadoop_conf = (ENV['HADOOP_CONF_DIR'] || File.join(@hadoop_home, 'conf'))
       @hadoop_conf += "/" unless @hadoop_conf.end_with? "/"
       $CLASSPATH << @hadoop_conf
+
       Dir["#{@hadoop_home}/hadoop*.jar", "#{@hadoop_home}/lib/*.jar"].each{|jar| require jar}
 
-      java_import 'org.apache.hadoop.conf.Configuration'
-      java_import 'org.apache.hadoop.fs.Path'
-      java_import 'org.apache.hadoop.fs.FileSystem'
-      java_import 'org.apache.hadoop.fs.FileUtil'
-      java_import 'org.apache.hadoop.mapreduce.lib.input.FileInputFormat'
-      java_import 'org.apache.hadoop.mapreduce.lib.output.FileOutputFormat'
-      java_import 'org.apache.hadoop.fs.FSDataOutputStream'
-      java_import 'org.apache.hadoop.fs.FSDataInputStream'
-
+      ['org.apache.hadoop.conf.Configuration',
+        'org.apache.hadoop.fs.Path',
+        'org.apache.hadoop.fs.FileSystem',
+        'org.apache.hadoop.fs.FileUtil',
+        'org.apache.hadoop.mapreduce.lib.input.FileInputFormat',
+        'org.apache.hadoop.mapreduce.lib.output.FileOutputFormat',
+        'org.apache.hadoop.fs.FSDataOutputStream',
+        'org.apache.hadoop.fs.FSDataInputStream'].map{|j_class| java_import(j_class) }
     end
 
   end
-
 end

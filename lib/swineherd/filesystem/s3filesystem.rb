@@ -1,21 +1,17 @@
 require 'tempfile'
+require 'right_aws'
 module Swineherd
 
   #
   # Methods for interacting with Amazon's Simple Store Service (s3).
   #
   class S3FileSystem
-
     include Swineherd::BaseFileSystem
 
-    attr_accessor :s3
+    attr_accessor :fs
 
-    #
-    # Initialize a new s3 file system, needs path to aws keys
-    #
     def initialize aws_access_key_id, aws_secret_access_key
-      require 'right_aws'
-      @s3 = RightAws::S3.new(aws_access_key_id, aws_secret_access_key)
+      @fs = RightAws::S3.new(aws_access_key_id, aws_secret_access_key)
     end
 
     def open path, mode="r", &blk
@@ -23,84 +19,46 @@ module Swineherd
     end
 
     def size path
-      sz = 0
-      if type(path) == "directory"
-        lr(path).each do |f|
-          sz += file_size(f)
-        end        
+      if type(path).eql?("directory")
+        lr(path).inject(0) do |sum,file|
+          sum += filesize(file)
+        end
       else
-        sz += file_size(path)
+        filesize(path)
       end
-      sz
-    end    
-
-    def file_size path
-      containing_bucket = bucket(path)
-      header            = @s3.interface.head(containing_bucket, key_path(path))
-      header['content-length'].to_i
     end
-    
+
     def rm path
-      bkt = bucket(path)
-      key = key_path(path)
+      bkt,key = split_path(path)
       if key.empty? # only the bucket was passed in, delete it
-        @s3.interface.force_delete_bucket(bkt)
+        @fs.interface.force_delete_bucket(bkt)
       else
         case type(path)
         when "directory" then
           keys_to_delete = lr(path)
           keys_to_delete.each do |k|
             key_to_delete = key_path(k)
-            @s3.interface.delete(bkt, key_to_delete)
+            @fs.interface.delete(bkt, key_to_delete)
           end
           keys_to_delete
         when "file" then
-          @s3.interface.delete(bkt, key)
+          @fs.interface.delete(bkt, key)
           [path]
         end
       end
     end
 
-    def bucket path
-      uri = URI.parse(path)
-      uri.path.split('/').reject{|x| x.empty?}.first
-    end
-
-    def key_path path
-      uri = URI.parse(path)
-      File.join(uri.path.split('/').reject{|x| x.empty?}[1..-1])
-    end
-
-    def needs_trailing_slash pre
-      has_trailing_slash = pre.end_with? '/'
-      is_empty_prefix    = pre.empty?
-      !(has_trailing_slash || is_empty_prefix)
-    end
-
-    def full_contents path
-      bkt = bucket(path)
-      pre = key_path(path)
-      pre += '/' if needs_trailing_slash(pre)
-      contents = []
-      s3.interface.incrementally_list_bucket(bkt, {'prefix' => pre, 'delimiter' => '/'}) do |res|
-        contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
-        contents += res[:contents].map{|c| File.join(bkt, c[:key])}
-      end
-      contents
-    end
-
     def exists? path
       object     = File.basename(path)
       search_dir = File.dirname(path)
-      case search_dir
-      when '.' then # only a bucket was passed in
+      if search_dir.eql?('.') # only a bucket was passed in
         begin
           (full_contents(object).size > 0)
-        rescue RightAws::AwsError => e
-          if e.message =~ /nosuchbucket/i
+        rescue RightAws::AwsError => error
+          if error.message =~ /nosuchbucket/i
             false
           else
-            raise e
+            raise error
           end
         end
       else
@@ -110,10 +68,9 @@ module Swineherd
     end
 
     def mv srcpath, dstpath
-      src_bucket   = bucket(srcpath)
-      dst_bucket   = bucket(dstpath)
-      dst_key_path = key_path(dstpath)
-      mkpath(dstpath)
+      src_bucket,src_key_path = split_path(srcpath)
+      dst_bucket,dst_key_path = split_path(dstpath)
+      mkpath(dstpath) unless exists?(dstpath)
       case type(srcpath)
       when "directory" then
         paths_to_copy = lr(srcpath)
@@ -121,18 +78,18 @@ module Swineherd
         paths_to_copy.each do |path|
           src_key = key_path(path)
           dst_key = File.join(dst_key_path, path.gsub(common_dir, ''))
-          @s3.interface.move(src_bucket, src_key, dst_bucket, dst_key)
+          @fs.interface.move(src_bucket, src_key, dst_bucket, dst_key)
         end
       when "file" then
-        @s3.interface.move(src_bucket, key_path(srcpath), dst_bucket, dst_key_path)
+        @fs.interface.move(src_bucket, src_key_path, dst_bucket, dst_key_path)
       end
     end
 
+    # mv is just a special case of cp...this is a waste
     def cp srcpath, dstpath
-      src_bucket   = bucket(srcpath)
-      dst_bucket   = bucket(dstpath)
-      dst_key_path = key_path(dstpath)
-      mkpath(dstpath)
+      src_bucket,src_key_path = split_path(srcpath)
+      dst_bucket,dst_key_path = split_path(dstpath)
+      mkpath(dstpath) unless exists?(dstpath)
       case type(srcpath)
       when "directory" then
         paths_to_copy = lr(srcpath)
@@ -140,23 +97,32 @@ module Swineherd
         paths_to_copy.each do |path|
           src_key = key_path(path)
           dst_key = File.join(dst_key_path, path.gsub(common_dir, ''))
-          @s3.interface.copy(src_bucket, src_key, dst_bucket, dst_key)
+          @fs.interface.copy(src_bucket, src_key, dst_bucket, dst_key)
         end
       when "file" then
-        @s3.interface.copy(src_bucket, key_path(srcpath), dst_bucket, dst_key_path)
+        @fs.interface.copy(src_bucket, src_key_path, dst_bucket, dst_key_path)
       end
+    end
+
+    def put srcpath, destpath
+      dest_bucket = bucket(destpath)
+      if File.directory? srcpath
+        # handle Dir later
+      else
+        key = srcpath
+      end
+      @fs.interface.put(dest_bucket, key, File.open(srcpath))
     end
 
     # right now this only works on single files
     def copy_to_local srcpath, dstpath
-      src_bucket   = bucket(srcpath)
-      src_key_path = key_path(srcpath)
-      dstfile      = File.new(dstpath, 'w')
-      @s3.interface.get(src_bucket, src_key_path) do |chunk|
+      src_bucket,src_key_path = split_path(srcpath)
+      dstfile = File.new(dstpath, 'w')
+      @fs.interface.get(src_bucket, src_key_path) do |chunk|
         dstfile.write(chunk)
       end
       dstfile.close
-    end 
+    end
 
     # This is a bit funny, there's actually no need to create a 'path' since
     # s3 is nothing more than a glorified key-value store. When you create a
@@ -164,13 +130,8 @@ module Swineherd
     # the bucket unless it already exists.
     #
     def mkpath path
-      bkt = bucket(path)
-      key = key_path(path)
-      if key.empty?
-        @s3.interface.create_bucket(bkt)
-      else
-        @s3.interface.create_bucket(bkt) unless exists? bkt
-      end
+      bkt,key = split_path(path)
+      @fs.interface.create_bucket(bkt) unless exists? bkt
       path
     end
 
@@ -205,18 +166,39 @@ module Swineherd
       uncommon_idx = dirs.transpose.each_with_index.find{|dirnames, idx| dirnames.uniq.length > 1}.last
       dirs[0][0...uncommon_idx].join('/')
     end
-	
-    def put srcpath, destpath
-      dest_bucket = bucket(destpath)
-      if File.directory? srcpath
-	# handle Dir later
-      else
-        key = srcpath
-      end
-      @s3.interface.put(dest_bucket, key, File.open(srcpath))
-    end	
 
-    def close *args
+    def filesize filepath
+      bucket = bucket(filepath)
+      header = @fs.interface.head(bucket, key_path(filepath))
+      header['content-length'].to_i
+    end
+
+    def needs_trailing_slash? pre
+      !(pre.end_with? '/' || pre.empty?)
+    end
+
+    def full_contents path
+      bkt,pre = split_path(path)
+      pre += '/' if needs_trailing_slash?(pre)
+      contents = []
+      s3.interface.incrementally_list_bucket(bkt, {'prefix' => pre, 'delimiter' => '/'}) do |res|
+        contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
+        contents += res[:contents].map{|c| File.join(bkt, c[:key])}
+      end
+      contents
+    end
+
+    def bucket path
+      URI.parse(path).path.split('/').reject{|x| x.empty?}.first
+    end
+
+    def key_path path
+      File.join(URI.parse(path).path.split('/').reject{|x| x.empty?}[1..-1])
+    end
+
+    def split_path path
+      path = URI.parse(path).path.split('/').reject{|x| x.empty?}
+      [path[0],path[1..-1].join("/")]
     end
 
     class S3File
@@ -283,5 +265,4 @@ module Swineherd
     end
 
   end
-
 end
