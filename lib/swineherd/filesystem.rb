@@ -1,4 +1,6 @@
 require 'fileutils'
+require 'tempfile'
+require 'right_aws'
 
 require 'swineherd/filesystem/basefilesystem'
 require 'swineherd/filesystem/localfilesystem'

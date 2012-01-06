@@ -49,13 +49,31 @@ module Swineherd
     #List directory contents,similar to unix `ls`
     #Dir[@path@/*] to return files in immediate directory of @path@
     def ls path
-      Dir[path+'/*']
+      if exists?(path)
+        if !directory?(path)
+          [path]
+        else
+          path += '/' unless path =~ /\/$/
+          Dir[path+'*']
+        end
+      else
+        raise Errno::ENOENT, "No such file or directory - #{path}"
+      end
     end
 
     #Recursively list directory contents
     #Dir[@path@/**/*],similar to unix `ls -R`
     def ls_r path
-      Dir[path+'/**/*']
+      if exists?(path)
+        if !directory?(path)
+          [path]
+        else
+          path += '/' unless path =~ /\/$/
+          Dir[path+'**/*']
+        end
+      else
+        raise Errno::ENOENT, "No such file or directory - #{path}"
+      end
     end
 
   end

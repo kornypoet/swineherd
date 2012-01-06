@@ -1,8 +1,8 @@
 require 'rubygems'
 require 'configliere' ; Configliere.use(:commandline, :env_var, :define,:config_file)
-require 'erubis'
 require 'rake'
 
+#Merge in system and user settings
 system_config = "/etc/swineherd.yaml"
 user_config   = File.join(ENV['HOME'], '.swineherd.yaml')
 Settings.read system_config if File.exists? system_config
