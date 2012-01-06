@@ -179,9 +179,9 @@ module Swineherd
         @handle.read
       end
 
-      def readline
-        @handle.readline
-      end
+      # def readline
+      #   @handle.readline
+      # end
 
       def write string
         @handle.write(string.to_java_string.get_bytes)

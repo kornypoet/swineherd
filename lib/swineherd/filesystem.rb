@@ -1,10 +1,15 @@
-module Swineherd
-  autoload :BaseFileSystem,   'swineherd/filesystem/basefilesystem'
-  autoload :LocalFileSystem,  'swineherd/filesystem/localfilesystem'
-  autoload :HadoopFileSystem, 'swineherd/filesystem/hadoopfilesystem'
-  autoload :S3FileSystem,     'swineherd/filesystem/s3filesystem'
+require 'fileutils'
 
-  class FileSystem
+require 'swineherd/filesystem/basefilesystem'
+require 'swineherd/filesystem/localfilesystem'
+require 'swineherd/filesystem/hadoopfilesystem'
+require 'swineherd/filesystem/s3filesystem'
+
+module Swineherd
+  module FileSystem
+
+    HDFS_PREFIX_REGEXP = /^hdfs:\/\//
+    S3_PREFIX_REGEXP   = /^s3n?:\/\//
 
     FILESYSTEMS = {
       'file' => Swineherd::LocalFileSystem,
@@ -21,6 +26,17 @@ module Swineherd
       end
     end
 
-  end
+    private
 
+    # def instance_for file_path
+    #   if file_path =~ HDFS_PREFIX_REGEXP
+    #     Swineherd::HadoopFileSystem.new
+    #   elsif file_path =~ S3_PREFIX_REGEXP
+    #     Swineherd::S3FileSystem.new
+    #   else
+    #     Swineherd::LocalFileSystem.new
+    #   end
+    # end
+
+  end
 end

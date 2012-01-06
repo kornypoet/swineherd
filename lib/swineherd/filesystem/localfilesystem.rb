@@ -46,9 +46,16 @@ module Swineherd
       FileUtils.mkdir_p path
     end
 
-    #Globs for files at @path@, append '**/*' to glob recursively
-    def entries path
-      Dir[path]
+    #List directory contents,similar to unix `ls`
+    #Dir[@path@/*] to return files in immediate directory of @path@
+    def ls path
+      Dir[path+'/*']
+    end
+
+    #Recursively list directory contents
+    #Dir[@path@/**/*],similar to unix `ls -R`
+    def ls_r path
+      Dir[path+'/**/*']
     end
 
   end
