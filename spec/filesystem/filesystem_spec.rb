@@ -1,180 +1,160 @@
-#!/usr/bin/env ruby
-
 require 'spec_helper'
+SPEC_ROOT = File.dirname(__FILE__)
 
-[:file,:s3,:hdfs].each do |filesystem|
+shared_examples_for "an abstract file_system" do
 
-  describe "A '#{filesystem.to_s}' filesystem instance" do
+  let(:test_filename){ File.join(test_dirname,"filename.txt") }
+  let(:test_string){ "foobarbaz" }
 
-    before do
-      @fs = Swineherd::FileSystem.get(filesystem)
-      test_bucket = "swineherd-test-bucket" #FIXME: this doesn't belong here
-      @test_dirname   = (filesystem == :s3) ? "#{test_bucket}/tmp/test_dir" : "/tmp/test_dir"
-      @test_filename  = (filesystem == :s3) ? "#{test_bucket}/tmp/test_filename.txt" : "/tmp/test_filename.txt"
+  let(:files){ ['d.txt','b/c.txt'].map{|f| File.join(test_dirname,f)} }
+  let(:dirs){ ['b'].map{|d| File.join(test_dirname,d)} }
 
-      @dirs  = ['/tmp/a','/tmp/a/b']
-      @files = ['/tmp/a/d.txt','/tmp/a/b/c.txt']
+  it "implements #exists?" do
+    fs.mkdir_p(test_dirname)
+    expect{ fs.open(test_filename,'w'){|f| f.write(test_string)} }.to change{ fs.exists?(test_filename) }.from(false).to(true)
+  end
 
-      @dirs.map!{|dir| dir = test_bucket+dir } if filesystem == :s3
-      @files.map!{|file| file = test_bucket+file } if filesystem == :s3
+  it "implements #directory?" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename, 'w'){|f| f.write(test_string)}
+    fs.directory?(test_filename).should eql false
+    fs.directory?(test_dirname).should eql true
+  end
 
-      @test_string    = "abcdefg"
+  it "implements #rm on files" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename, 'w'){|f| f.write(test_string)}
+    expect{ fs.rm(test_filename) }.to change{ fs.exists?(test_filename) }.from(true).to(false)
+  end
 
-    end
+  it "raises error on #rm of directory" do
+    fs.mkdir_p(test_dirname)
+    expect{fs.rm(test_dirname)}.to raise_error
+  end
 
-    it "implements exists?" do
-      @fs.respond_to?(:exists?).should eql(true)
-    end
+  it "implements #rm_r" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename,'w'){|f| f.write(test_string)}
+    expect{ fs.rm_r(test_dirname) }.to change{ fs.exists?(test_dirname) && fs.exists?(test_filename) }.from(true).to(false)
+  end
 
-    it "implements directory?" do
-      @fs.respond_to?(:directory?).should eql(true)
+  it "implements #ls" do
+    dirs.each{ |dir| fs.mkdir_p(dir) }
+    files.each{|filename| fs.open(filename,"w"){|f|f.write(test_string) }}
+    fs.ls(test_dirname).length.should eql 2
+    fs.ls(test_dirname).include?(files[1]).should eql false
+  end
 
-      @fs.mkdir_p(@test_dirname)
-      @fs.directory?(@test_dirname).should eql true
+  it "implements #ls_r" do
+    dirs.each{ |dir| fs.mkdir_p(dir) }
+    files.each{|filename| fs.open(filename,"w"){|f|f.write(test_string) }}
+    fs.ls_r(test_dirname).length.should eql 3
+    fs.ls_r(test_dirname).include?(files[1]).should eql true
+  end
 
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      @fs.directory?(@test_filename).should eql false
+  it "implements #size" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename,'w'){|f| f.write(test_string)}
+    test_string.length.should eql(fs.size(test_filename))
+  end
 
-      @fs.rm_r(@test_dirname)
-      @fs.rm(@test_filename)
-    end
+  it "implements #mkdir_p" do
+    expect{ fs.mkdir_p(test_dirname) }.to change{ fs.directory?(test_dirname) }.from(false).to(true)
+  end
 
-    it "implements mkdir_p" do
-      @fs.respond_to?(:mkdir_p).should eql(true)
-      @fs.mkdir_p(@test_dirname)
-      @fs.directory?(@test_dirname).should eql(true)
-    end
+  it "implements #mv" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename, 'w'){|f| f.write(test_string)}
+    filename2 = File.join(test_dirname,"new_file.txt")
+    expect{ fs.mv(test_filename, filename2) }.to change{ fs.exists?(filename2) }.from(false).to(true)
+    fs.exists?(test_filename).should eql false
+    fs.open(filename2,"r").read.should eql test_string
+  end
 
-    it "implements rm" do
-      @fs.respond_to?(:rm).should eql(true)
+  it "implements #cp" do
+    fs.mkdir_p(test_dirname)
+    fs.open(test_filename, 'w'){|f| f.write(test_string)}
+    filename2 = File.join(test_dirname,"new_file.txt")
+    expect{ fs.cp(test_filename, filename2) }.to change{ fs.exists?(filename2) }.from(false).to(true)
+    fs.open(test_filename,"r").read.should eql fs.open(filename2,"r").read
+  end
 
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      @fs.exists?(@test_filename).should eql true
-      @fs.rm(@test_filename)
-      @fs.exists?(@test_filename).should eql false
+  it "implements #cp_r"
 
-      @fs.mkdir_p(@test_dirname)
-      lambda{@fs.rm(@test_dirname)}.should raise_error
-
-      @fs.rm_r(@test_dirname)
-    end
-
-    it "implements rm_r" do
-      @fs.respond_to?(:rm_r).should eql(true)
-      @fs.mkdir_p(@test_dirname)
-      @fs.rm_r(@test_dirname)
-      @fs.exists?(@test_dirname).should eql(false)
-    end
-
-    it 'implements open' do
-      @fs.respond_to?(:open).should eql(true)
-      file = @fs.open(@test_filename, 'w')
-      file.write(@test_string)
+  it "implements #open" do
+    fs.mkdir_p(test_dirname)
+    expect{
+      file = fs.open(test_filename, 'w')
+      file.write(test_string)
       file.close
-      @fs.exists?(@test_filename).should eql true
-      (@test_string.length).should eql(@fs.size(@test_filename))
-      @fs.rm(@test_filename)
+    }.to change{ fs.exists?(test_filename) }.from(false).to(true)
+  end
+
+  it "implements #open with &blk" do
+    fs.mkdir_p(test_dirname)
+    expect{ fs.open(test_filename, 'w'){|f| f.write(test_string)} }.to change{ fs.exists?(test_filename) }.from(false).to(true)
+  end
+
+  describe "with a new file" do
+
+    it "implements path" do
+      fs.mkdir_p(test_dirname)
+      file = fs.open(test_filename,'w')
+      file.path.should eql test_filename
     end
 
-    it 'implements open with &blk' do
-      @fs.respond_to?(:open).should eql true
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      @fs.exists?(@test_filename).should eql true
-      (@test_string.length).should eql(@fs.size(@test_filename))
-      @fs.rm(@test_filename)
+    it "implements write" do
+      fs.mkdir_p(test_dirname)
+      fs.open(test_filename,'w'){|f| f.write(test_string)}
     end
 
-    it "implements size" do
-      @fs.respond_to?(:size).should eql true
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      (@test_string.length).should eql(@fs.size(@test_filename))
-      @fs.rm(@test_filename)
+    it "should not allow write after close" do
+      fs.mkdir_p(test_dirname)
+      file = fs.open(test_filename,'w')
+      file.write(test_string)
+      file.close
+      lambda{file.write(test_string)}.should raise_error
     end
 
-    it "implements cp" do
-      @fs.respond_to?(:cp).should eql true
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      filename2 = File.join(File.dirname(@test_filename),File.basename(@test_filename,".txt")+"2.txt")
-      @fs.cp(@test_filename, filename2)
-
-      @fs.exists?(@test_filename).should eql(true)
-      @fs.exists?(filename2).should eql(true)
-
-      @fs.rm(@test_filename)
-      @fs.rm(filename2)
-    end
-
-    it "implements cp_r"
-
-    it "implements mv" do
-      @fs.respond_to?(:mv).should eql true
-      @fs.open(@test_filename, 'w'){|f| f.write(@test_string)}
-      filename2 = File.join(File.dirname(@test_filename),File.basename(@test_filename,".txt")+"2.txt")
-      @fs.mv(@test_filename, filename2)
-      @fs.exists?(@test_filename).should eql(false)
-      @fs.exists?(filename2).should eql(true)
-      @fs.rm(filename2)
-    end
-
-    it "implements ls" do
-      @fs.respond_to?(:ls).should eql true
-      @dirs.each{ |dir| @fs.mkdir_p(dir) }
-      @files.each{|filename| @fs.open(filename,"w"){|f|f.write(@test_string) }}
-      @fs.ls(@dirs[0]).class.should eql(Array)
-      @fs.ls(@dirs[0]).length.should eql 2
-      @fs.ls(@dirs[0]).include?(@files[1]).should eql false
-      @fs.rm_r(@dirs[0])
-    end
-
-    it "implements ls_r" do
-      @fs.respond_to?(:ls_r).should eql true
-      @dirs.each{ |dir| @fs.mkdir_p(dir) }
-      @files.each{|filename| @fs.open(filename,"w"){|f|f.write(@test_string) }}
-      @fs.ls_r(@dirs[0]).class.should eql(Array)
-      p @dirs[0]
-      @fs.ls_r(@dirs[0]).length.should eql 3
-
-      @fs.ls_r(@dirs[0]).include?(@files[1]).should eql true
-      @fs.rm_r(@dirs[0])
-    end
-
-    describe "with a new file" do
-      before do
-        @fs.rm(@test_filename) if @fs.exists?(@test_filename)
-        @file = @fs.open(@test_filename,'w')
-      end
-
-      it "implements path" do
-        @file.respond_to?(:path).should eql true
-        @file.path.should eql @test_filename
-      end
-
-      it "implements close" do
-        @file.respond_to?(:close).should eql true
-        @file.write(@test_string)
-        @file.close
-        lambda{@file.write(@test_string)}.should raise_error
-      end
-
-      it "implements write" do
-        @file.respond_to?(:write).should eql true
-        @file.write(@test_string)
-        @file.close
-        @fs.rm(@file.path)
-      end
-
-      it "implements read" do
-        @file.respond_to?(:read).should eql true
-        @file.write(@test_string)
-        @file.close
-
-        @file_r = @fs.open(@file.path,"r")
-        @file_r.read.should eql(@test_string)
-
-        @fs.rm(@file_r.path)
-      end
-
+    it "implements read" do
+      fs.mkdir_p(test_dirname)
+      fs.open(test_filename,'w'){|f| f.write(test_string)}
+      fs.open(test_filename,'r').read.should eql test_string
     end
 
   end
+
+  after do
+    fs.rm_r(test_dirname) if fs.exists?(test_dirname)
+  end
+
 end
+
+describe Swineherd::LocalFileSystem do
+
+  it_behaves_like "an abstract file_system" do
+    let(:fs){ Swineherd::LocalFileSystem.new }
+    let(:test_dirname){ SPEC_ROOT+"/tmp/test_dir" }
+  end
+
+end
+
+describe Swineherd::S3FileSystem do
+
+  #mkdir_p wont pass because there is no concept of a directory on s3
+
+  it_behaves_like "an abstract file_system" do
+    let(:fs){ Swineherd::S3FileSystem.new }
+    let(:test_dirname){ "swineherd-bucket-test/tmp/test_dir" }
+  end
+
+end
+
+# describe Swineherd::HadoopFileSystem do
+#
+#   it_behaves_like "an abstract file_system" do
+#     let(:fs){ Swineherd::HadoopFileSystem.new }
+#     let(:test_dirname){ SPEC_ROOT+"/tmp/test_dir" }
+#   end
+#
+# end

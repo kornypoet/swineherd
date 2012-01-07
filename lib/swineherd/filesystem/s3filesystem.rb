@@ -1,7 +1,7 @@
 module Swineherd
 
   #
-  # Methods for interacting with Amazon's Simple Store Service (s3).
+  # Methods for interacting with Amazon's Simple Store Service (S3).
   #
   class S3FileSystem
     #    include Swineherd::BaseFileSystem
@@ -9,8 +9,9 @@ module Swineherd
     attr_accessor :s3
 
     def initialize options={}
-      aws_access_key = options[:aws_access_key] || Settings[:aws][:access_key]
-      aws_secret_key = options[:aws_secret_key] || Settings[:aws][:secret_key]
+      aws_access_key = options[:aws_access_key] || (Settings[:aws] && Settings[:aws][:access_key])
+      aws_secret_key = options[:aws_secret_key] || (Settings[:aws] && Settings[:aws][:secret_key])
+      raise "Missing AWS keys" unless aws_access_key && aws_secret_key
       @s3 = RightAws::S3.new(aws_access_key, aws_secret_key)
     end
 
@@ -57,7 +58,18 @@ module Swineherd
     def exists? path
       bucket,key = split_path(path)
       begin
-        @s3.interface.list_bucket(bucket,:prefix => key).size > 0
+        if key.empty? #only a bucket was passed in, check if it exists
+          #FIXME: there may be a better way to test, relying on error to be raised here
+          @s3.interface.bucket_location(bucket) && true
+        elsif file?(path) #simply test for existence of the file
+          true
+        else #treat as directory and see if there are files beneath it
+          #if it's not a file, it is harmless to add '/'.
+          #the prefix search may return files with the same root extension,
+          #ie. foo.txt and foo.txt.bak, if we leave off the trailing slash
+          key+="/" unless key =~ /\/$/
+          @s3.interface.list_bucket(bucket,:prefix => key).size > 0
+        end
       rescue RightAws::AwsError => error
         if error.message =~ /nosuchbucket/i
           false
@@ -70,25 +82,7 @@ module Swineherd
     end
 
     def directory? path
-      !file?(path)
-    end
-
-    def file? path
-      if exists?(path)
-        bucket,key = split_path(path)
-        begin
-          @s3.interface.head(bucket,key)
-          true
-        rescue RightAws::AwsError => error
-          if error.message =~ /nosuchbucket/i
-            false
-          elsif  error.message =~ /not found/i
-            false
-          else
-            raise
-          end
-        end
-      end
+      exists?(path) && !file?(path)
     end
 
     def mv srcpath, dstpath
@@ -140,17 +134,22 @@ module Swineherd
     end
 
     def ls path
-      #      return unless directory?(dirpath)
-      full_contents(path)
+      if exists?(path)
+        bkt,prefix = split_path(path)
+        prefix += '/' if directory?(path) && !(prefix =~ /\/$/)
+        contents = []
+        @s3.interface.incrementally_list_bucket(bkt, {'prefix' => prefix,:delimiter => '/'}) do |res|
+          contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
+          contents += res[:contents].map{|c| File.join(bkt, c[:key])}
+        end
+        contents
+      else
+        raise Errno::ENOENT, "No such file or directory - #{path}"
+      end
     end
 
     def ls_r path
-      paths = ls(path)
-      if paths
-        paths.map{|e| ls_r(e)}.flatten
-      else
-        path
-      end
+      ls(path).inject([]){|rec_paths,path| rec_paths << path; rec_paths << ls(path) unless file?(path); rec_paths}.flatten
     end
 
     def put srcpath, destpath
@@ -188,6 +187,22 @@ module Swineherd
 
     private
 
+    def file? path
+      bucket,key = split_path(path)
+      begin
+        #FIXME: there may be a better way to test, relying on error to be raised
+        @s3.interface.head(bucket,key) && true
+      rescue RightAws::AwsError => error
+        if error.message =~ /nosuchbucket/i
+          false
+        elsif  error.message =~ /not found/i
+          false
+        else
+          raise
+        end
+      end
+    end
+
     #
     # Ick.
     #
@@ -206,18 +221,6 @@ module Swineherd
     end
 
     def full_contents path
-      if exists?(path)
-        bkt,prefix = split_path(path)
-        prefix += '/' if directory?(path) && (prefix =~ /\/$/)
-        contents = []
-        @s3.interface.incrementally_list_bucket(bkt, {'prefix' => prefix}) do |res|
-          contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
-          contents += res[:contents].map{|c| File.join(bkt, c[:key])}
-        end
-        contents
-      else
-        raise Errno::ENOENT, "No such file or directory - #{path}"
-      end
     end
 
     class S3File
