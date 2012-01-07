@@ -55,28 +55,40 @@ module Swineherd
     end
 
     def exists? path
-      object     = File.basename(path)
-      search_dir = File.dirname(path)
-      if search_dir.eql?('.') # only a bucket was passed in
-        begin
-          (full_contents(object).size > 0)
-        rescue RightAws::AwsError => error
-          if error.message =~ /nosuchbucket/i
-            false
-          else
-            raise error
-          end
+      bucket,key = split_path(path)
+      begin
+        @s3.interface.list_bucket(bucket,:prefix => key).size > 0
+      rescue RightAws::AwsError => error
+        if error.message =~ /nosuchbucket/i
+          false
+        elsif error.message =~ /not found/i
+          false
+        else
+          raise
         end
-      else
-        search_dir_contents = full_contents(search_dir).map{|c| File.basename(c).gsub(/\//, '')}
-        search_dir_contents.include?(object)
       end
     end
 
-    #This is a hack. Since s3 is just a key-value store, make anything that isn't
-    #already a file respond true to @directory?@
     def directory? path
-      !(exists?(path) && full_contents(path).empty?)
+      !file?(path)
+    end
+
+    def file? path
+      if exists?(path)
+        bucket,key = split_path(path)
+        begin
+          @s3.interface.head(bucket,key)
+          true
+        rescue RightAws::AwsError => error
+          if error.message =~ /nosuchbucket/i
+            false
+          elsif  error.message =~ /not found/i
+            false
+          else
+            raise
+          end
+        end
+      end
     end
 
     def mv srcpath, dstpath
@@ -86,7 +98,6 @@ module Swineherd
 
       if(directory?(srcpath))
         paths_to_copy = ls_r(srcpath)
-        p paths_to_copy
         common_dir    = common_directory(paths_to_copy)
         paths_to_copy.each do |path|
           src_key = key_path(path)
@@ -125,7 +136,7 @@ module Swineherd
     #the bucket unless it already exists.
     def mkdir_p path
       bkt,key = split_path(path)
-      @s3.interface.create_bucket(bkt) unless exists? bkt
+      @s3.interface.create_bucket(bkt) unless exists? path
     end
 
     def ls path
@@ -195,11 +206,11 @@ module Swineherd
     end
 
     def full_contents path
-      bkt,prefix = split_path(path)
       if exists?(path)
-        prefix += '/' unless prefix =~ /\/$/
+        bkt,prefix = split_path(path)
+        prefix += '/' if directory?(path) && (prefix =~ /\/$/)
         contents = []
-        @s3.interface.incrementally_list_bucket(bkt, {'prefix' => prefix, 'delimiter' => '/'}) do |res|
+        @s3.interface.incrementally_list_bucket(bkt, {'prefix' => prefix}) do |res|
           contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
           contents += res[:contents].map{|c| File.join(bkt, c[:key])}
         end

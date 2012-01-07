@@ -1,3 +1,5 @@
+require 'erubis'
+
 module Swineherd
   class Script
 

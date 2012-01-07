@@ -3,6 +3,8 @@ module Swineherd
     class HadoopRunner < BaseRunner
       include HadoopJobconf
 
+      register /.*\.rb\.?.*/ #wukong style streaming scripts
+
       def hadoop_runner_path
         [config.hadoop_home,"bin","hadoop"].join("/")
       end
