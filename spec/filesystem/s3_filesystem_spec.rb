@@ -1,9 +1,5 @@
 #!/usr/bin/env ruby
 
-describe Swineherd::S3FileSystem do
-  it_behaves_like 'a filesystem'
-end
-
 #
 # These tests cannot possibly pass unless you have an amazon account with proper
 # credentials. Furthermore, you definitely want a test bucket to play with. In
