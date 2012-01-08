@@ -12,7 +12,7 @@ module Swineherd
       aws_access_key = options[:aws_access_key] || (Settings[:aws] && Settings[:aws][:access_key])
       aws_secret_key = options[:aws_secret_key] || (Settings[:aws] && Settings[:aws][:secret_key])
       raise "Missing AWS keys" unless aws_access_key && aws_secret_key
-      @s3 = RightAws::S3.new(aws_access_key, aws_secret_key)
+      @s3 = RightAws::S3.new(aws_access_key, aws_secret_key,:logger => Logger.new(nil))
     end
 
     def open path, mode="r", &blk
@@ -36,18 +36,16 @@ module Swineherd
       end
     end
 
+    #rm_r - remove recursively
+    #params: @path@ - Path of file or folder to delete
+    #returns: Array - Array of paths which were deleted
     def rm_r path
       bkt,key = split_path(path)
       if key.empty? # only the bucket was passed in, delete it
         @s3.interface.force_delete_bucket(bkt)
       else
         if directory?(path)
-          keys_to_delete = ls_r(path)
-          keys_to_delete.each do |k|
-            key_to_delete = key_path(k)
-            @s3.interface.delete(bkt, key_to_delete)
-          end
-          keys_to_delete
+          @s3.interface.delete_folder(bkt,key).flatten
         else
           @s3.interface.delete(bkt, key)
           [path]
@@ -89,8 +87,7 @@ module Swineherd
       src_bucket,src_key_path = split_path(srcpath)
       dst_bucket,dst_key_path = split_path(dstpath)
       mkdir_p(dstpath) unless exists?(dstpath)
-
-      if(directory?(srcpath))
+      if directory? srcpath
         paths_to_copy = ls_r(srcpath)
         common_dir    = common_directory(paths_to_copy)
         paths_to_copy.each do |path|
@@ -152,14 +149,19 @@ module Swineherd
       ls(path).inject([]){|rec_paths,path| rec_paths << path; rec_paths << ls(path) unless file?(path); rec_paths}.flatten
     end
 
+    # @srcpath@ is assumed to be on local filesystem
     def put srcpath, destpath
       dest_bucket = bucket(destpath)
-      if File.directory?(srcpath)
-        raise "NotYetImplemented"
+      if File.exists?(srcpath)
+        if File.directory?(srcpath)
+          raise "NotYetImplemented"
+        else
+          key = srcpath
+        end
+        @s3.interface.put(dest_bucket, key, File.open(srcpath))
       else
-        key = srcpath
+        raise Errno::ENOENT, "No such file or directory - #{srcpath}"
       end
-      @s3.interface.put(dest_bucket, key, File.open(srcpath))
     end
 
     #FIXME: right now this only works on single files
@@ -209,7 +211,7 @@ module Swineherd
     def common_directory paths
       dirs     = paths.map{|path| path.split('/')}
       min_size = dirs.map{|splits| splits.size}.min
-      dirs.map!{|splits| splits[0...min_size]}
+      dirs     = dirs.map{|splits| splits[0...min_size]}
       uncommon_idx = dirs.transpose.each_with_index.find{|dirnames, idx| dirnames.uniq.length > 1}.last
       dirs[0][0...uncommon_idx].join('/')
     end
@@ -218,9 +220,6 @@ module Swineherd
       bucket,key = split_path(filepath)
       header = @s3.interface.head(bucket, key)
       header['content-length'].to_i
-    end
-
-    def full_contents path
     end
 
     class S3File

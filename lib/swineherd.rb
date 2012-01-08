@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'configliere' ; Configliere.use(:commandline, :env_var, :define,:config_file)
 require 'rake'
+require 'logger'
 
 #Merge in system and user settings
 system_config = "/etc/swineherd.yaml"

@@ -1,5 +1,6 @@
 require 'spec_helper'
 SPEC_ROOT = File.dirname(__FILE__)
+S3_TEST_BUCKET = 'swineherd-bucket-test'
 
 shared_examples_for "an abstract file_system" do
 
@@ -145,7 +146,8 @@ describe Swineherd::S3FileSystem do
 
   it_behaves_like "an abstract file_system" do
     let(:fs){ Swineherd::S3FileSystem.new }
-    let(:test_dirname){ "swineherd-bucket-test/tmp/test_dir" }
+    let(:fs){ Swineherd::S3FileSystem.new }
+    let(:test_dirname){ S3_TEST_BUCKET+"/tmp/test_dir" }
   end
 
 end
