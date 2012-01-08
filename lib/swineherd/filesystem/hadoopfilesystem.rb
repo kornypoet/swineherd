@@ -24,17 +24,17 @@ module Swineherd
     end
 
     def size path
-      lsr(path).inject(0){|sz, f| sz += @hdfs.get_file_status(Path.new(f)).get_len}
+      ls_r(path).inject(0){|sz, f| sz += @hdfs.get_file_status(Path.new(f)).get_len}
+    end
+
+    def ls path
+      #return unless @hdfs.get_file_status(Path.new(path)).is_dir?
+      @hdfs.list_status(Path.new(path)).map{|path| path.get_path.to_s}
     end
 
     #list directories recursively, similar to unix 'ls -R'
-    def lsr path
-      paths = entries(path)
-      if (paths && !paths.empty?)
-        paths.map{|e| lsr(e)}.flatten
-      else
-        path
-      end
+    def ls_r path
+      ls(path).map{|e| ls(e)}.flatten
     end
 
     def rm path
@@ -63,11 +63,6 @@ module Swineherd
 
     def mkdir_p path
       @hdfs.mkdirs(Path.new(path))
-    end
-
-    def entries dirpath
-#     return unless @hdfs.get_file_status(Path.new(path)).is_dir?
-      @hdfs.list_status(Path.new(dirpath)).map{|path| path.get_path.to_s}
     end
 
     #
@@ -146,7 +141,7 @@ module Swineherd
     #
     # Copy local file to hdfs filesystem
     #
-    def copy_from_local srcfile, dstfile
+    def put srcfile, dstfile
       @hdfs.copy_from_local_file(Path.new(srcfile), Path.new(dstfile))
     end
 
@@ -155,19 +150,19 @@ module Swineherd
     end
 
     class HadoopFile
-      attr_accessor :handle
+      attr_accessor :handle,:path
 
       #
       # In order to open input and output streams we must pass around the hadoop fs object itself
       #
       def initialize path, mode, fs, &blk
         raise Errno::EISDIR,"#{path} is a directory" if directory?(path)
-        hdfs_path = Path.new(path)
+        @path = Path.new(path)
         case mode
         when "r"
-          @handle = fs.hdfs.open(hdfs_path).to_io(&blk)
+          @handle = fs.hdfs.open(path).to_io(&blk)
         when "w"
-          @handle = fs.hdfs.create(hdfs_path).to_io.to_outputstream
+          @handle = fs.hdfs.create(path).to_io.to_outputstream
           if block_given?
             yield self
             self.close

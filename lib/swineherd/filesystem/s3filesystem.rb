@@ -149,7 +149,7 @@ module Swineherd
       ls(path).inject([]){|rec_paths,path| rec_paths << path; rec_paths << ls(path) unless file?(path); rec_paths}.flatten
     end
 
-    # @srcpath@ is assumed to be on local filesystem
+    # @srcpath@ is assumed to be on the local filesystem
     def put srcpath, destpath
       dest_bucket = bucket(destpath)
       if File.exists?(srcpath)
@@ -248,8 +248,7 @@ module Swineherd
       # Faster than iterating
       #
       def read
-        resp = fs.s3.interface.get_object(fs.bucket(path), fs.key_path(path))
-        resp
+        fs.s3.interface.get_object(fs.bucket(path), fs.key_path(path))
       end
 
       #
@@ -268,10 +267,6 @@ module Swineherd
 
       def write string
         @handle.write(string)
-      end
-
-      def puts string
-        write(string+"\n")
       end
 
       def close

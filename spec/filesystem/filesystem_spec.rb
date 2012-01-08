@@ -1,14 +1,14 @@
 require 'spec_helper'
-SPEC_ROOT = File.dirname(__FILE__)
+FS_SPEC_ROOT = File.dirname(__FILE__)
 S3_TEST_BUCKET = 'swineherd-bucket-test'
 
-shared_examples_for "an abstract file_system" do
+shared_examples_for "an abstract filesystem" do
 
   let(:test_filename){ File.join(test_dirname,"filename.txt") }
   let(:test_string){ "foobarbaz" }
 
   let(:files){ ['d.txt','b/c.txt'].map{|f| File.join(test_dirname,f)} }
-  let(:dirs){ ['b'].map{|d| File.join(test_dirname,d)} }
+  let(:dirs){ %w(b).map{|d| File.join(test_dirname,d)} }
 
   it "implements #exists?" do
     fs.mkdir_p(test_dirname)
@@ -133,9 +133,9 @@ end
 
 describe Swineherd::LocalFileSystem do
 
-  it_behaves_like "an abstract file_system" do
+  it_behaves_like "an abstract filesystem" do
     let(:fs){ Swineherd::LocalFileSystem.new }
-    let(:test_dirname){ SPEC_ROOT+"/tmp/test_dir" }
+    let(:test_dirname){ FS_SPEC_ROOT+"/tmp/test_dir" }
   end
 
 end
@@ -144,7 +144,7 @@ describe Swineherd::S3FileSystem do
 
   #mkdir_p wont pass because there is no concept of a directory on s3
 
-  it_behaves_like "an abstract file_system" do
+  it_behaves_like "an abstract filesystem" do
     let(:fs){ Swineherd::S3FileSystem.new }
     let(:fs){ Swineherd::S3FileSystem.new }
     let(:test_dirname){ S3_TEST_BUCKET+"/tmp/test_dir" }
@@ -154,7 +154,7 @@ end
 
 # describe Swineherd::HadoopFileSystem do
 #
-#   it_behaves_like "an abstract file_system" do
+#   it_behaves_like "an abstract filesystem" do
 #     let(:fs){ Swineherd::HadoopFileSystem.new }
 #     let(:test_dirname){ SPEC_ROOT+"/tmp/test_dir" }
 #   end
