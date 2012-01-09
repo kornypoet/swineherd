@@ -62,7 +62,7 @@ module Swineherd
     end
 
     def cp srcpath, dstpath
-      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(URI(dstpath),@conf), Path.new(dstpath), false, @conf)
+      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(URI.create(dstpath),@conf), Path.new(dstpath), false, @conf)
     end
 
     def cp_r srcpath,dstpath
@@ -84,8 +84,8 @@ module Swineherd
     #
     def stream input, output
       require 'uri'
-      input_fs_scheme  = URI.parse(input).scheme
-      output_fs_scheme = URI.parse(output).scheme
+      input_fs_scheme  = URI.create(input).scheme || "file://"
+      output_fs_scheme = URI.create(output).scheme || "file://"
       system("#{@hadoop_home}/bin/hadoop \\
        jar         #{@hadoop_home}/contrib/streaming/hadoop-*streaming*.jar                     \\
        -D          mapred.job.name=\"Stream { #{input_fs_scheme}(#{File.basename(input)}) -> #{output_fs_scheme}(#{File.basename(output)}) }\" \\
