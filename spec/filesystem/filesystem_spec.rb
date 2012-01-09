@@ -28,8 +28,9 @@ shared_examples_for "an abstract filesystem" do
     expect{ fs.rm(test_filename) }.to change{ fs.exists?(test_filename) }.from(true).to(false)
   end
 
-  it "raises error on #rm of directory" do
+  it "raises error on #rm of non-empty directory" do
     fs.mkdir_p(test_dirname)
+    fs.open(test_filename, 'w'){|f| f.write(test_string)}
     expect{fs.rm(test_dirname)}.to raise_error
   end
 

@@ -28,8 +28,7 @@ module Swineherd
     end
 
     def ls path
-      #return unless @hdfs.get_file_status(Path.new(path)).is_dir?
-      @hdfs.list_status(Path.new(path)).map{|path| path.get_path.to_s}
+      (@hdfs.list_status(Path.new(path)) || []).map{|path| path.get_path.to_s}
     end
 
     #list directories recursively, similar to unix 'ls -R'
