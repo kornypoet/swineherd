@@ -34,7 +34,7 @@ module Swineherd
 
     #list directories recursively, similar to unix 'ls -R'
     def ls_r path
-      ls(path).map{|e| ls(e)}.flatten
+      ls(path).inject([]){|rec_paths,path| rec_paths << path; rec_paths << ls(path) unless file?(path); rec_paths}.flatten
     end
 
     def rm path
@@ -51,6 +51,10 @@ module Swineherd
 
     def directory? path
       exists?(path) && @hdfs.get_file_status(Path.new(path)).is_dir?
+    end
+
+    def file? path
+      exists?(path) && @hdfs.isFile(Path.new(path))
     end
 
     def mv srcpath, dstpath
@@ -151,7 +155,7 @@ module Swineherd
     alias :put :copy_from_local
 
     class HadoopFile
-      attr_accessor :handle,:path
+      attr_accessor :handle
 
       #
       # In order to open input and output streams we must pass around the hadoop fs object itself
@@ -169,6 +173,10 @@ module Swineherd
             self.close
           end
         end
+      end
+
+      def path
+        @path.toString()
       end
 
       def read
@@ -243,7 +251,6 @@ module Swineherd
     # Place hadoop jars in class path, require appropriate jars, set hadoop conf
     #
     def set_hadoop_environment
-#      require 'java'
       @hadoop_conf = (ENV['HADOOP_CONF_DIR'] || File.join(@hadoop_home, 'conf'))
       @hadoop_conf += "/" unless @hadoop_conf.end_with? "/"
       $CLASSPATH << @hadoop_conf
