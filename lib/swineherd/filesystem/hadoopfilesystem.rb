@@ -6,7 +6,7 @@ module Swineherd
   # libraries.
   #
   class HadoopFileSystem
-    include Swineherd::BaseFileSystem
+    #include Swineherd::BaseFileSystem
 
     attr_accessor :conf, :hdfs
 
@@ -50,7 +50,7 @@ module Swineherd
     end
 
     def directory? path
-      @hdfs.get_file_status(Path.new(path)).is_dir?
+      exists?(path) && @hdfs.get_file_status(Path.new(path)).is_dir?
     end
 
     def mv srcpath, dstpath
@@ -58,7 +58,7 @@ module Swineherd
     end
 
     def cp srcpath, dstpath
-      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(dstpath,@conf), Path.new(dstpath), false, @conf)
+      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(URI(dstpath),@conf), Path.new(dstpath), false, @conf)
     end
 
     def cp_r srcpath,dstpath
@@ -157,13 +157,13 @@ module Swineherd
       # In order to open input and output streams we must pass around the hadoop fs object itself
       #
       def initialize path, mode, fs, &blk
-        raise Errno::EISDIR,"#{path} is a directory" if directory?(path)
+        raise Errno::EISDIR,"#{path} is a directory" if fs.directory?(path)
         @path = Path.new(path)
         case mode
         when "r"
-          @handle = fs.hdfs.open(path).to_io(&blk)
+          @handle = fs.hdfs.open(@path).to_io(&blk)
         when "w"
-          @handle = fs.hdfs.create(path).to_io.to_outputstream
+          @handle = fs.hdfs.create(@path).to_io.to_outputstream
           if block_given?
             yield self
             self.close
@@ -235,7 +235,8 @@ module Swineherd
         raise "\nJava not found, are you sure you're running with JRuby?\n" + e.message
       end
       @hadoop_home = ENV['HADOOP_HOME']
-      raise "\nHadoop installation not found, try setting $HADOOP_HOME\n" unless File.exist? @hadoop_home
+      raise "\nHadoop installation not found, try setting $HADOOP_HOME\n" unless @hadoop_home && (File.exist? @hadoop_home)
+      true
     end
 
     #
@@ -249,18 +250,13 @@ module Swineherd
 
       Dir["#{@hadoop_home}/hadoop*.jar", "#{@hadoop_home}/lib/*.jar"].each{|jar| require jar}
 
-      ['org.apache.hadoop.conf.Configuration',
-        'org.apache.hadoop.fs.Path',
-        'org.apache.hadoop.fs.FileSystem',
+      ['org.apache.hadoop.fs.Path',
         'org.apache.hadoop.fs.FileUtil',
+        'java.net.URI',
         'org.apache.hadoop.mapreduce.lib.input.FileInputFormat',
         'org.apache.hadoop.mapreduce.lib.output.FileOutputFormat',
         'org.apache.hadoop.fs.FSDataOutputStream',
         'org.apache.hadoop.fs.FSDataInputStream'].map{|j_class| java_import(j_class) }
-    end
-
-    at_exit do
-      @hdfs.close
     end
 
   end
