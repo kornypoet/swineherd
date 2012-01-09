@@ -1,3 +1,6 @@
+Swineherd.config.define :flow_id,     :required => true,                     :description => "Flow id required to make run of workflow unique"
+Swineherd.config.define :iterations,  :type => Integer,  :default => 10,      :description => "Number of pagerank iterations to run"
+
 module Swineherd
   class Workflow
     attr_accessor :workdir, :outputs, :output_counts
@@ -20,7 +23,6 @@ module Swineherd
     def next_output taskname
       raise "No working directory specified." unless @workdir
       @outputs[taskname] << "#{@workdir}/#{@flow_id}/#{taskname}-#{@output_counts[taskname]}"
-      p @outputs
       @output_counts[taskname] += 1
       latest_output(taskname)
     end

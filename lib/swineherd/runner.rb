@@ -1,14 +1,14 @@
 module Swineherd
   module Runner
 
-      @registry = {}
-      class << self; attr_accessor :registry; end
+    @registry = {}
+    class << self; attr_accessor :registry; end
 
-      def self.for_script(script)
-        klass = @registry.detect{|re,kl| script.filename =~ re}
-        raise "No runner found for #{script.filename}" unless klass
-        klass[1].new(script)
-      end
+    def self.for_script(script)
+      klass = @registry.detect{|re,kl| script.filename =~ re}
+      raise "No runner found for '#{script.filename}'" unless klass
+      klass[1].new(script)
+    end
 
   end
 end

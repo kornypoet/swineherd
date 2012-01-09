@@ -1,7 +1,7 @@
 module Swineherd
   module Runner
     class HadoopRunner < BaseRunner
-      include HadoopJobconf
+      include HadoopJobConf
 
       register /.*\.rb\.?.*/ #wukong style streaming scripts
 

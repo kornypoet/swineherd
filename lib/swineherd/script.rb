@@ -1,7 +1,8 @@
+
 module Swineherd
   class Script
 
-    attr_reader   :raw_script_filename
+    attr_reader   :raw_script_filename,:file
     attr_accessor :binding
 
     def initialize(raw_script_filename,binding={})
@@ -10,13 +11,12 @@ module Swineherd
     end
 
     def run(settings={})
-      runner = Swineherd::Runner.for_script(self)
       runner.config.merge!(settings)
       runner.execute
     end
 
-    def bind(key_val={})
-      @binding.merge!(key_val)
+    def runner
+      @runner ||= Swineherd::Runner.for_script(self)
     end
 
     def flush!
@@ -25,18 +25,19 @@ module Swineherd
       @binding  = {}
     end
 
-    def file
-      @file ||= File.open(script_filename,"w+"){|file| file.write(script_contents);file}
+    def filename
+      write
+      file && file.path
     end
 
-    def filename
-      file.path
+    def write
+      @file ||= File.open(script_filename,"w+"){|file| file.write(script_contents);file}
     end
 
     private
 
     def script_filename
-      Settings.template_root+[Time.now.to_i,$$,File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-")
+      Swineherd.config.template_root+[Time.now.to_i,$$,File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-")
     end
 
     def script_contents
@@ -45,3 +46,5 @@ module Swineherd
 
   end
 end
+
+require 'swineherd/script/pig_script'
