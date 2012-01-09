@@ -27,16 +27,16 @@ describe 'Swineherd::Runner::PigRunner' do
     end
 
     it 'should set -p command line params' do
-      @runner.config.param = {:foo => "bar"}
-      @runner.script_params.should include '-p FOO=bar'
+      @runner.config.params = {:foo => "bar"}
+      @runner.param_options_string.should include '-p FOO=bar'
     end
 
-    it 'should set -x run mode' do
+    it 'should set -exectype run mode' do
       @runner.config.run_mode = 'local'
-      @runner.run_mode.should == '-x local'
+      @runner.run_mode.should == '-exectype local'
 
       @runner.config.run_mode = 'mapreduce'
-      @runner.run_mode.should == '-x mapreduce'
+      @runner.run_mode.should == '-exectype mapreduce'
     end
 
   end

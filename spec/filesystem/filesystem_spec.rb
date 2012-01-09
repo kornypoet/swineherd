@@ -142,7 +142,7 @@ end
 
 describe Swineherd::S3FileSystem do
 
-  #mkdir_p wont pass because there is no concept of a directory on s3
+  #mkdir_p won't pass because there is no concept of a directory on s3
 
   it_behaves_like "an abstract filesystem" do
     let(:fs){ Swineherd::S3FileSystem.new }
@@ -152,11 +152,11 @@ describe Swineherd::S3FileSystem do
 
 end
 
-# describe Swineherd::HadoopFileSystem do
-#
-#   it_behaves_like "an abstract filesystem" do
-#     let(:fs){ Swineherd::HadoopFileSystem.new }
-#     let(:test_dirname){ SPEC_ROOT+"/tmp/test_dir" }
-#   end
-#
-# end
+describe Swineherd::HadoopFileSystem do
+
+  it_behaves_like "an abstract filesystem" do
+    let(:fs){ Swineherd::HadoopFileSystem.new }
+    let(:test_dirname){ "/tmp/test_dir" }
+  end
+
+end

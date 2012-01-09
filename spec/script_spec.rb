@@ -8,11 +8,10 @@ describe 'Swineherd::Script' do
     }
 
     it 'should instantiate an ERB script with variable bindings' do
-      @script.contents.should == "fips = LOAD 'fips_to_state.tsv' AS (fips_id:int,state_name:chararray);\nDUMP fips;\n"
+      @script.file.read.should == "fips = LOAD 'fips_to_state.tsv' AS (fips_id:int,state_name:chararray);\nDUMP fips;\n"
     end
 
     it 'should write a file' do
-      @script.write
       File.exists?(@script.filename).should be_true
     end
 
