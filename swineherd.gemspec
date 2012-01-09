@@ -71,6 +71,7 @@ Gem::Specification.new do |s|
       s.add_runtime_dependency(%q<gorillib>, [">= 0"])
       s.add_runtime_dependency(%q<erubis>, [">= 0"])
       s.add_runtime_dependency(%q<right_aws>, [">= 0"])
+      s.add_runtime_dependency(%q<jruby-openssl>, [">= 0"])
     else
       s.add_dependency(%q<yard>, ["~> 0.6.0"])
       s.add_dependency(%q<jeweler>, ["~> 1.5.2"])

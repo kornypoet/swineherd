@@ -38,7 +38,11 @@ module Swineherd
     end
 
     def rm path
-      @hdfs.delete(Path.new(path), false)
+      begin
+        @hdfs.delete(Path.new(path), false)
+      rescue java.io.IOException => e
+        raise Errno::EISDIR, e.message
+      end
     end
 
     def rm_r path
