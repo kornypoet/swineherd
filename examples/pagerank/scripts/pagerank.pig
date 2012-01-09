@@ -1,10 +1,12 @@
 --
 -- Runs exactly one pagerank iteration
 --
-network      = LOAD '$CURR_ITER_FILE' AS (node_a:chararray, rank:float, out_links:bag { link:tuple (node_b:chararray) });
+network     = LOAD '$CURR_ITER_FILE' AS (node_a:chararray, rank:float, out_links:bag { link:tuple (node_b:chararray) });
 sent_shares  = FOREACH network GENERATE FLATTEN(out_links) AS node_b, (float)(rank / (float)SIZE(out_links)) AS share:float;
+
 sent_links   = FOREACH network GENERATE node_a, out_links;
 rcvd_shares  = COGROUP sent_links BY node_a INNER, sent_shares BY node_b;
+
 next_iter    = FOREACH rcvd_shares
                {
                    raw_rank    = (float)SUM(sent_shares.share);

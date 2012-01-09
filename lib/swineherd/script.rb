@@ -1,40 +1,46 @@
-require 'erubis'
-
 module Swineherd
   class Script
 
     attr_reader   :raw_script_filename
-    attr_accessor :contents,:variables
+    attr_accessor :binding
 
-    def initialize(raw_script_filename,variables={})
+    def initialize(raw_script_filename,binding={})
       @raw_script_filename = raw_script_filename
-      @variables = variables
+      @binding = binding
     end
 
     def run(settings={})
-      write unless @file
       runner = Swineherd::Runner.for_script(self)
       runner.config.merge!(settings)
       runner.execute
     end
 
-    def contents
-      @contents ||= Erubis::Eruby.new(File.read(raw_script_filename)).result(variables)
+    def bind(key_val={})
+      @binding.merge!(key_val)
     end
 
     def flush!
       File.delete(filename)
-      @contents = nil
-      @filename = nil
       @file     = nil
+      @binding  = {}
+    end
+
+    def file
+      @file ||= File.open(script_filename,"w+"){|file| file.write(script_contents);file}
     end
 
     def filename
-      @filename ||= "/tmp/"+[Time.now.to_i,$$,File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-")
+      file.path
     end
 
-    def write
-      @file ||= File.open(filename,"w+"){ |file| file.write(contents);file}
+    private
+
+    def script_filename
+      Settings.template_root+[Time.now.to_i,$$,File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-")
+    end
+
+    def script_contents
+      Erubis::Eruby.new(File.read(raw_script_filename)).result(self.binding)
     end
 
   end

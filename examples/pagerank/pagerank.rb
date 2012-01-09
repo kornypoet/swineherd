@@ -1,26 +1,25 @@
 #!/usr/bin/env ruby
 
 $LOAD_PATH << '../../lib'
-require 'swineherd'        ; include Swineherd
-require 'swineherd/script' ; include Swineherd::Script
-require 'swineherd/filesystem'
+require 'swineherd';include Swineherd
 
 Settings.define :flow_id,     :required => true,                     :description => "Flow id required to make run of workflow unique"
-Settings.define :iterations,  :type => Integer,  :default => 10,     :description => "Number of pagerank iterations to run"
-Settings.define :hadoop_home, :default => '/usr/local/share/hadoop', :description => "Path to hadoop config"
+Settings.define :iterations,  :type => Integer,  :default => 1,      :description => "Number of pagerank iterations to run"
+#Settings.define :hadoop_home, :default => '/usr/local/share/hadoop', :description => "Path to hadoop config"
 Settings.resolve!
 
 flow = Workflow.new(Settings.flow_id) do
 
   # The filesystems we're going to be working with
-  hdfs    = Swineherd::FileSystem.get(:hdfs)
+#  hdfs    = Swineherd::FileSystem.get(:hdfs)
   localfs = Swineherd::FileSystem.get(:file)
 
   # The scripts we're going to use
-  initializer = PigScript.new('scripts/pagerank_initialize.pig')
-  iterator    = PigScript.new('scripts/pagerank.pig')
-  finisher    = WukongScript.new('scripts/cut_off_list.rb')
-  plotter     = RScript.new('scripts/histogram.R')
+  initializer = Script.new('scripts/pagerank_initialize.pig')
+  iterator_script = Script.new('scripts/pagerank.pig')
+  iterator_runner = Swineherd::Runner::PigRunner.new(iterator_script)
+#  finisher    = WukongScript.new('scripts/cut_off_list.rb')
+#  plotter     = RScript.new('scripts/histogram.R')
 
   #
   # Runs simple pig script to initialize pagerank. We must specify the input
@@ -29,8 +28,8 @@ flow = Workflow.new(Settings.flow_id) do
   # converted into command-line args for the pig interpreter.
   #
   task :pagerank_initialize do
-    initializer.options = {:adjlist => "/tmp/pagerank_example/seinfeld_network.tsv", :initgrph => next_output(:pagerank_initialize)}
-    initializer.run(:hadoop) unless hdfs.exists? latest_output(:pagerank_initialize)
+    output = next_output(:pagerank_initialize)
+    initializer.run(:params => {:adjlist => "data/seinfeld_network.tsv", :initgrph => output},:run_mode => :local) unless localfs.exists? latest_output(:pagerank_initialize)
   end
 
   #
@@ -38,13 +37,13 @@ flow = Workflow.new(Settings.flow_id) do
   # the intermediate outputs.
   #
   task :pagerank_iterate => [:pagerank_initialize] do
-    iterator.options[:damp]           = '0.85f'
-    iterator.options[:curr_iter_file] = latest_output(:pagerank_initialize)
+    iterator_runner.config.params[:damp] = '0.85f'
+    iterator_runner.config.params[:curr_iter_file] = latest_output(:pagerank_initialize)
+    iterator_runner.config.run_mode = :local
     Settings.iterations.times do
-      iterator.options[:next_iter_file] = next_output(:pagerank_iterate)
-      iterator.run(:hadoop) unless hdfs.exists? latest_output(:pagerank_iterate)
-      iterator.refresh!
-      iterator.options[:curr_iter_file] = latest_output(:pagerank_iterate)
+      iterator_runner.config.params[:next_iter_file] = next_output(:pagerank_iterate)
+      iterator_runner.execute unless localfs.exists? latest_output(:pagerank_iterate)
+      iterator_runner.config.params[:curr_iter_file] = latest_output(:pagerank_iterate)
     end
   end
 
@@ -94,6 +93,6 @@ flow = Workflow.new(Settings.flow_id) do
 
 end
 
-flow.workdir = "/tmp/pagerank_example"
-flow.describe
-flow.run(:plot_results)
+flow.workdir = File.join(File.dirname(__FILE__),"pagerank_example")
+#flow.describe
+flow.run(:pagerank_iterate)

@@ -2,12 +2,15 @@ require 'rubygems'
 require 'configliere' ; Configliere.use(:commandline, :env_var, :define,:config_file)
 require 'rake'
 require 'logger'
+require 'erubis'
 
 #Merge in system and user settings
-system_config = "/etc/swineherd.yaml"
-user_config   = File.join(ENV['HOME'], '.swineherd.yaml')
-Settings.read system_config if File.exists? system_config
-Settings.read user_config  if File.exists? user_config
+SYSTEM_CONFIG_PATH = "/etc/swineherd.yaml"
+USER_CONFIG_PATH   = File.join(ENV['HOME'], '.swineherd.yaml')
+Settings.read SYSTEM_CONFIG_PATH if File.exists? SYSTEM_CONFIG_PATH
+Settings.read USER_CONFIG_PATH  if File.exists? USER_CONFIG_PATH
+
+Settings.define :template_root, :default => "/tmp/",:description => "Where interpolated Swineherd::Script templates are written to"
 
 require 'swineherd/script'
 require 'swineherd/runner'

@@ -11,11 +11,11 @@ module Swineherd
       end
 
       def run_mode
-        "-x #{config.run_mode}"
+        "-exectype #{config.run_mode}"
       end
 
       def command_line
-        [pig_runner_path,run_mode,script_params,script.filename].flatten.join(" ")
+        [pig_runner_path,run_mode,param_options_string,script.filename].flatten.join(" ")
       end
 
       def execute

@@ -35,9 +35,9 @@ With this command line:
 
 The same script can be run using the swineherd executable:
 
-<pre><code>./swineherd --map_tasks=20 --run_mode=local --script_param.in_path=fips_to_state.tsv foo.pig.erb</code></pre>
+<pre><code>./swineherd --map_tasks=20 --run_mode=local --binding.in_path=fips_to_state.tsv foo.pig.erb</code></pre>
 
-Script variables are specified using @--script_param@
+Script variables are specified using @--binding@
 
 
 h4. Workflow:
@@ -52,11 +52,55 @@ A workflow is built using rake @task@ objects that doing nothing more than run s
 
 h4. FileSystem
 
-Workflows are intended to run on filesystems. At the moment, implemented filesystems are
+    * @file@ - Local file system. Only thoroughly tested on Ubuntu Linux.
+    * @hdfs@ - Hadoop distributed file system. Uses the Apache Hadoop 0.20 API. Requires Jruby.
+    * @s3@   - Amazon Simple Storage System (s3).
+    * @ftp@
 
-* @file@ - Local file system. Only thoroughly tested on unbuntu linux.
-* @hdfs@ - Hadoop distributed file system. Uses jruby and the Apache Hadoop 0.20 api.
-* @s3@ - Uses the right_aws gem for interacting with Amazon Simple Storage System (s3).
+    All filesystem abstractions implement the following core functions, many taken from the UNIX filesystem:
+
+    * @mv@
+    * @cp@
+    * @cp_r@
+    * @rm@
+    * @rm_r@
+    * @open@
+    * @exists?@
+    * @directory?@
+    * @ls@
+    * @ls_r@
+    * @mkdir_p@
+
+    Additionally, the S3 and HDFS abstractions implement functions for moving files to and from the local filesystem:
+
+    @copy_to_local@   (@get)
+    @copy_from_local@ (@put)
+
+    Note: Since S3 is just a key value store, it is difficult to preserve the notion of a directory.
+    Therefore the @mkdir_p@ function has no purpose, as there cannot be empty directories. @mkdir_p@ currently only ensures that the bucket exists.
+    This implies that the @directory?@ test only succeeds if the directory is non-empty, which clashes with the notion on the UNIX filesystem.
+
+    
+    The Swineherd::Filesystem module can be used to move files between all abstractions, using schemed filepaths (hdfs://, s3://,file://).
+
+    For example, instead of doing the following:
+    <pre><code>hdfs = Swineherd::HdfsFilesystem.new
+    localfs = Swineherd::LocalFileSystem.new
+    hdfs.copy_to_local('foo/bar/baz.txt', 'foo/bar/baz.txt') unless localfs.exists? 'foo/bar/baz.txt'
+    </code></pre>            
+
+    You can do:
+    <pre><code>fs = Swineherd::Filesystem
+    fs.cp('hdfs://foo/bar/baz.txt','foo/bar/baz.txt') unless fs.exists?('foo/bar/baz.txt')
+    </code></pre>        
+
+
+    Note: A path without a scheme is treated as a path on the local filesystem, or use the explicit file:// scheme for clarity.  The following are equivalent:
+
+    <pre><code>fs.exists?('foo/bar/baz.txt')
+    fs.exists?('file://foo/bar/baz.txt')
+    </code></pre>    
+
 
 Using the filesystem:
 
@@ -84,140 +128,6 @@ s3fs.open("mys3bucket/mys3file", 'w') do |f|
   f.write("Writing a string to an s3 file")
 end
 </code></pre>
-
-h3. Working Example
-
-For the most up to date working example see the examples directory. Here's a simple example for running pagerank:
-
-<pre><code>
-#!/usr/bin/env ruby
-
-$LOAD_PATH << '../../lib'
-require 'swineherd'        ; include Swineherd
-require 'swineherd/script' ; include Swineherd::Script
-require 'swineherd/filesystem'
-
-Settings.define :flow_id,     :required => true,                     :description => "Flow id required to make run of workflow unique"
-Settings.define :iterations,  :type => Integer,  :default => 10,     :description => "Number of pagerank iterations to run"
-Settings.define :hadoop_home, :default => '/usr/local/share/hadoop', :description => "Path to hadoop config"
-Settings.resolve!
-
-flow = Workflow.new(Settings.flow_id) do
-
-  # The filesystems we're going to be working with
-  hdfs    = Swineherd::FileSystem.get(:hdfs)
-  localfs = Swineherd::FileSystem.get(:file)
-
-  # The scripts we're going to use
-  initializer = PigScript.new('scripts/pagerank_initialize.pig')
-  iterator    = PigScript.new('scripts/pagerank.pig')
-  finisher    = WukongScript.new('scripts/cut_off_list.rb')
-  plotter     = RScript.new('scripts/histogram.R')
-
-  #
-  # Runs simple pig script to initialize pagerank. We must specify the input
-  # here as this is the first step in the workflow. The output attribute is to
-  # ensure idempotency and the options attribute is the hash that will be
-  # converted into command-line args for the pig interpreter.
-  #
-  task :pagerank_initialize do
-    initializer.options = {:adjlist => "/tmp/pagerank_example/seinfeld_network.tsv", :initgrph => next_output(:pagerank_initialize)}
-    initializer.run(:hadoop) unless hdfs.exists? latest_output(:pagerank_initialize)
-  end
-
-  #
-  # Runs multiple iterations of pagerank with another pig script and manages all
-  # the intermediate outputs.
-  #
-  task :pagerank_iterate => [:pagerank_initialize] do
-    iterator.options[:damp]           = '0.85f'
-    iterator.options[:curr_iter_file] = latest_output(:pagerank_initialize)
-    Settings.iterations.times do
-      iterator.options[:next_iter_file] = next_output(:pagerank_iterate)
-      iterator.run(:hadoop) unless hdfs.exists? latest_output(:pagerank_iterate)
-      iterator.refresh!
-      iterator.options[:curr_iter_file] = latest_output(:pagerank_iterate)
-    end
-  end
-
-  #
-  # Here we use a wukong script to cut off the last field (a big pig bag of
-  # links). Notice how every wukong script MUST have an input but pig scripts do
-  # not.
-  #
-  task :cut_off_adjacency_list => [:pagerank_iterate] do
-    finisher.input  << latest_output(:pagerank_iterate)
-    finisher.output << next_output(:cut_off_adjacency_list)
-    finisher.run :hadoop unless hdfs.exists? latest_output(:cut_off_adjacency_list)
-  end
-
-  #
-  # We want to pull down one result file, merge the part-000.. files into one file
-  #
-  task :merge_results => [:cut_off_adjacency_list] do
-    merged_results = next_output(:merge_results)
-    hdfs.merge(latest_output(:cut_off_adjacency_list), merged_results) unless hdfs.exists? merged_results
-  end
-
-  #
-  # Cat results into a local directory with the same structure
-  # eg. #{work_dir}/#{flow_id}/pull_down_results-0.
-  #
-  # FIXME: Bridging filesystems is cludgey.
-  #
-  task :pull_down_results => [:merge_results] do
-    local_results = next_output(:pull_down_results)
-    hdfs.copy_to_local(latest_output(:merge_results), local_results) unless localfs.exists? local_results
-  end
-
-  #
-  # Plot 2nd column of the result as a histogram (requires R and
-  # ggplot2). Note that the output here is a png file but doesn't have that
-  # extension. Ensmarten me as to the right way to handle that?
-  #
-  task :plot_results =>  [:pull_down_results] do
-    plotter.attributes = {
-      :pagerank_data => latest_output(:pull_down_results),
-      :plot_file     => next_output(:plot_results), # <-- this will be a png...
-      :raw_rank      => "aes(x=d$V2)"
-    }
-    plotter.run(:local) unless localfs.exists? latest_output(:plot_results)
-  end
-
-end
-
-flow.workdir = "/tmp/pagerank_example"
-flow.describe
-flow.run(:plot_results)
-</code></pre>
-
-h3. Utils
-
-There's a fun little program to emphasize the ease of using the filesystem abstraction called 'hdp-tree':
-
-<pre><code>
-$: bin/hdp-tree /tmp/my_hdfs_directory
---- 
-/tmp/my_hdfs_directory: 
-  - my_hdfs_directory: 
-      - sub_dir_a: leaf_file_1
-      - sub_dir_a: leaf_file_2
-      - sub_dir_a: leaf_file_3
-  - my_hdfs_directory: 
-      - sub_dir_b: leaf_file_1
-      - sub_dir_b: leaf_file_2
-      - sub_dir_b: leaf_file_3
-  - my_hdfs_directory: 
-      - sub_dir_c: leaf_file_1
-      - sub_dir_c: leaf_file_2
-      - sub_dir_c: leaf_file_3
-      - sub_dir_c: 
-          - sub_sub_dir_a: yet_another_leaf_file
-      - sub_dir_c: sub_sub_dir_b
-      - sub_dir_c: sub_sub_dir_c
-</code></pre>
-
-I know, it's not as pretty as unix tree, but this IS github...
 
 h3. TODO
 

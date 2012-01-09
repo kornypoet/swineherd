@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 require 'swineherd'
-Settings.define :script_param,:default => {}
+Settings.define :binding,:default => {}
 Settings.resolve!
 raise "No file path provided" unless Settings.rest.first
-script = Swineherd::Script.new(Settings.rest.first,Settings.script_param)
+script = Swineherd::Script.new(Settings.rest.first,Settings.binding)
 puts script.contents
 script.run(Settings)

@@ -1,7 +1,7 @@
 module Swineherd
   class Workflow
     attr_accessor :workdir, :outputs, :output_counts
-    
+
     #
     # Create a new workflow and new namespace for this workflow
     #
@@ -20,6 +20,7 @@ module Swineherd
     def next_output taskname
       raise "No working directory specified." unless @workdir
       @outputs[taskname] << "#{@workdir}/#{@flow_id}/#{taskname}-#{@output_counts[taskname]}"
+      p @outputs
       @output_counts[taskname] += 1
       latest_output(taskname)
     end
@@ -35,9 +36,9 @@ module Swineherd
     # Runs workflow starting with taskname
     #
     def run taskname
-      Log.info "Launching workflow task #{@flow_id}:#{taskname} ..."
+      Logger.new(STDOUT).info "Launching workflow task #{@flow_id}:#{taskname} ..."
       Rake::Task["#{@flow_id}:#{taskname}"].invoke
-      Log.info "Workflow task #{@flow_id}:#{taskname} finished"
+      Logger.new(STDOUT).info "Workflow task #{@flow_id}:#{taskname} finished"
     end
 
     #
@@ -45,7 +46,7 @@ module Swineherd
     #
     def describe
       Rake::Task.tasks.each do |t|
-        Log.info("Task: #{t.name} [#{t.inspect}]") if t.name =~ /#{@flow_id}/
+        Logger.new(STDOUT).info("Task: #{t.name} [#{t.inspect}]") if t.name =~ /#{@flow_id}/
       end
     end
 
