@@ -43,14 +43,12 @@ shared_examples_for "an abstract filesystem" do
     dirs.each{ |dir| fs.mkdir_p(dir) }
     files.each{|filename| fs.open(filename,"w"){|f|f.write(test_string) }}
     fs.ls(test_dirname).length.should eql 2
-    fs.ls(test_dirname).include?(files[1]).should eql false
   end
 
   it "implements #ls_r" do
     dirs.each{ |dir| fs.mkdir_p(dir) }
     files.each{|filename| fs.open(filename,"w"){|f|f.write(test_string) }}
     fs.ls_r(test_dirname).length.should eql 3
-    fs.ls_r(test_dirname).include?(files[1]).should eql true
   end
 
   it "implements #size" do
