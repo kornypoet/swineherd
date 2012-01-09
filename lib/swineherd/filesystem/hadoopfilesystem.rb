@@ -24,7 +24,7 @@ module Swineherd
     end
 
     def size path
-      ls_r(path).inject(0){|sz, f| sz += @hdfs.get_file_status(Path.new(f)).get_len}
+      ls_r(path).inject(0){|sz,filepath| sz += @hdfs.get_file_status(Path.new(filepath)).get_len}
     end
 
     def ls path
@@ -59,6 +59,9 @@ module Swineherd
 
     def cp srcpath, dstpath
       FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(dstpath,@conf), Path.new(dstpath), false, @conf)
+    end
+
+    def cp_r srcpath,dstpath
     end
 
     def mkdir_p path
@@ -137,17 +140,15 @@ module Swineherd
     def copy_to_local srcfile, dstfile
       @hdfs.copy_to_local_file(Path.new(srcfile), Path.new(dstfile))
     end
+    alias :copy_to_local :get
 
     #
     # Copy local file to hdfs filesystem
     #
-    def put srcfile, dstfile
+    def copy_from_local srcfile, dstfile
       @hdfs.copy_from_local_file(Path.new(srcfile), Path.new(dstfile))
     end
-
-    def close *args
-      @hdfs.close
-    end
+    alias :copy_from_local :put
 
     class HadoopFile
       attr_accessor :handle,:path
@@ -173,10 +174,6 @@ module Swineherd
       def read
         @handle.read
       end
-
-      # def readline
-      #   @handle.readline
-      # end
 
       def write string
         @handle.write(string.to_java_string.get_bytes)
@@ -260,6 +257,10 @@ module Swineherd
         'org.apache.hadoop.mapreduce.lib.output.FileOutputFormat',
         'org.apache.hadoop.fs.FSDataOutputStream',
         'org.apache.hadoop.fs.FSDataInputStream'].map{|j_class| java_import(j_class) }
+    end
+
+    at_exit do
+      @hdfs.close
     end
 
   end

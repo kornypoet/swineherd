@@ -15,7 +15,7 @@ module Swineherd
     end
 
     def rm_r path
-      FileUtils.rm_r path
+      FileUtils.rm_rf path
     end
 
     def rm path
