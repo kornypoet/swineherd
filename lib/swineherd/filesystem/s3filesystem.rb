@@ -83,6 +83,23 @@ module Swineherd
       exists?(path) && !file?(path)
     end
 
+    def file? path
+      bucket,key = split_path(path)
+      begin
+        return false if (key.nil? || key.empty?) #buckets are not files
+        #FIXME: there may be a better way to test, relying on error to be raised
+        @s3.interface.head(bucket,key) && true
+      rescue RightAws::AwsError => error
+        if error.message =~ /nosuchbucket/i
+          false
+        elsif  error.message =~ /not found/i
+          false
+        else
+          raise
+        end
+      end
+    end
+
     def mv srcpath, dstpath
       src_bucket,src_key_path = split_path(srcpath)
       dst_bucket,dst_key_path = split_path(dstpath)
@@ -133,7 +150,7 @@ module Swineherd
     def ls path
       if exists?(path)
         bkt,prefix = split_path(path)
-        prefix += '/' if directory?(path) && !(prefix =~ /\/$/)
+        prefix += '/' if directory?(path) && !(prefix =~ /\/$/) && !prefix.empty?
         contents = []
         @s3.interface.incrementally_list_bucket(bkt, {'prefix' => prefix,:delimiter => '/'}) do |res|
           contents += res[:common_prefixes].map{|c| File.join(bkt,c)}
@@ -146,7 +163,11 @@ module Swineherd
     end
 
     def ls_r path
-      ls(path).inject([]){|rec_paths,path| rec_paths << path; rec_paths << ls(path) unless file?(path); rec_paths}.flatten
+      if(file?(path))
+        [path]
+      else
+        ls(path).inject([]){|paths,path| paths << path if directory?(path);paths << ls_r(path)}.flatten
+      end
     end
 
     # @srcpath@ is assumed to be on the local filesystem
@@ -188,22 +209,6 @@ module Swineherd
     end
 
     private
-
-    def file? path
-      bucket,key = split_path(path)
-      begin
-        #FIXME: there may be a better way to test, relying on error to be raised
-        @s3.interface.head(bucket,key) && true
-      rescue RightAws::AwsError => error
-        if error.message =~ /nosuchbucket/i
-          false
-        elsif  error.message =~ /not found/i
-          false
-        else
-          raise
-        end
-      end
-    end
 
     #
     # Ick.

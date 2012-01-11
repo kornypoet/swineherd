@@ -145,8 +145,17 @@ describe Swineherd::S3FileSystem do
 
   it_behaves_like "an abstract filesystem" do
     let(:fs){ Swineherd::S3FileSystem.new }
-    let(:fs){ Swineherd::S3FileSystem.new }
     let(:test_dirname){ S3_TEST_BUCKET+"/tmp/test_dir" }
+  end
+
+  describe "an S3FileSystem" do
+
+    let(:fs){ Swineherd::S3FileSystem.new }
+
+    it "should return false for #file? on a bucket" do
+      fs.file?(S3_TEST_BUCKET).should eql false
+    end
+
   end
 
 end
