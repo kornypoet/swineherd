@@ -16,6 +16,12 @@ module Swineherd
     def initialize *args
       set_hadoop_environment if running_jruby?
       @conf = Java::org.apache.hadoop.conf.Configuration.new
+
+      if Swineherd.config[:aws]
+        @conf.set("fs.s3.awsAccessKeyId",Swineherd.config[:aws][:access_key])
+        @conf.set("fs.s3.awsSecretAccessKey",Swineherd.config[:aws][:secret_key])
+      end
+
       @hdfs = Java::org.apache.hadoop.fs.FileSystem.get(@conf)
     end
 
