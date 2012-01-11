@@ -10,13 +10,14 @@ require 'swineherd/filesystem/s3filesystem'
 module Swineherd
   module FileSystem
 
-    HDFS_PREFIX_REGEXP = /^hdfs:\/\//
-    S3_PREFIX_REGEXP   = /^s3n?:\/\//
+    HDFS_SCHEME_REGEXP = /^hdfs:\/\//
+    S3_SCHEME_REGEXP   = /^s3n?:\/\//
 
     FILESYSTEMS = {
       'file' => Swineherd::LocalFileSystem,
       'hdfs' => Swineherd::HadoopFileSystem,
-      's3'   => Swineherd::S3FileSystem
+      's3'   => Swineherd::S3FileSystem,
+      's3n'   => Swineherd::S3FileSystem
     }
 
     # A factory function that returns an instance of the requested class
@@ -28,17 +29,41 @@ module Swineherd
       end
     end
 
+    def self.cp(srcpath,destpath)
+      src_fs  = scheme_for(srcpath)
+      dest_fs = scheme_for(destpath)
+      if(src_fs.eql?(dest_fs))
+        self.get(src_fs).cp(srcpath,destpath)
+      else
+        case [src_fs,dest_fs]
+        when [:hdfs,:file]
+          self.get(:hdfs).copy_to_local(srcpath,destpath)
+        when [:hdfs,:s3]
+          self.get(:hdfs).cp(srcpath,destpath)
+        when [:hdfs,:s3n]
+          self.get(:hdfs).cp(srcpath,destpath)
+        when [:file,:hdfs]
+          self.get(:hdfs).copy_from_local(srcpath,destpath)
+        when [:file,:s3]
+          self.get(:s3).copy_from_local(srcpath,destpath)
+        when [:s3,:hdfs]
+          self.get(:hdfs).cp(srcpath,destpath)
+        when [:s3n,:hdfs]
+          self.get(:hdfs).cp(srcpath,destpath)
+        when [:s3,:file]
+          self.get(:s3).copy_to_local(srcpath,destpath)
+        else
+          raise "Unsupported copy between '#{src_fs}' and '#{dest_fs}' filesystems"
+        end
+      end
+    end
+
     private
 
-    # def instance_for file_path
-    #   if file_path =~ HDFS_PREFIX_REGEXP
-    #     Swineherd::HadoopFileSystem.new
-    #   elsif file_path =~ S3_PREFIX_REGEXP
-    #     Swineherd::S3FileSystem.new
-    #   else
-    #     Swineherd::LocalFileSystem.new
-    #   end
-    # end
+    def scheme_for(path)
+      scheme = URI.parse(path).scheme
+      (scheme && scheme.to_sym) || :file
+    end
 
   end
 end

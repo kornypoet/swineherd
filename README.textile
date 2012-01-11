@@ -82,7 +82,7 @@ h4. FileSystem
     This implies that the @directory?@ test only succeeds if the directory is non-empty, which clashes with the notion on the UNIX filesystem.
 
     
-    The @Swineherd::Filesystem@ module can be used to move files between all abstractions, using schemed filepaths (hdfs://, s3://,file://).
+    The @Swineherd::Filesystem@ module can be used to @cp@ files between all abstractions, using schemed filepaths (hdfs://,s3://,file://).
 
     
     For example, instead of doing the following:<pre><code>hdfs = Swineherd::HdfsFilesystem.new

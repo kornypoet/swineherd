@@ -20,6 +20,9 @@ module Swineherd
       if Swineherd.config[:aws]
         @conf.set("fs.s3.awsAccessKeyId",Swineherd.config[:aws][:access_key])
         @conf.set("fs.s3.awsSecretAccessKey",Swineherd.config[:aws][:secret_key])
+
+        @conf.set("fs.s3n.awsAccessKeyId",Swineherd.config[:aws][:access_key])
+        @conf.set("fs.s3n.awsSecretAccessKey",Swineherd.config[:aws][:secret_key])
       end
 
       @hdfs = Java::org.apache.hadoop.fs.FileSystem.get(@conf)
@@ -70,8 +73,11 @@ module Swineherd
       @hdfs.rename(Path.new(srcpath), Path.new(dstpath))
     end
 
+    #supports s3://,s3n://,hdfs:// in @srcpath@ and @dstpath@
     def cp srcpath, dstpath
-      FileUtil.copy(@hdfs, Path.new(srcpath), Java::org.apache.hadoop.fs.FileSystem.get(URI.create(dstpath),@conf), Path.new(dstpath), false, @conf)
+      @src_fs  = Java::org.apache.hadoop.fs.FileSystem.get(Java::JavaNet::URI.create(srcpath),@conf)
+      @dest_fs = Java::org.apache.hadoop.fs.FileSystem.get(Java::JavaNet::URI.create(dstpath),@conf)
+      FileUtil.copy(@src_fs, Path.new(srcpath),@dest_fs, Path.new(dstpath), false, @conf)
     end
 
     def cp_r srcpath,dstpath
@@ -92,9 +98,8 @@ module Swineherd
     # This is hackety. Use with caution.
     #
     def stream input, output
-      require 'uri'
-      input_fs_scheme  = URI.create(input).scheme || "file://"
-      output_fs_scheme = URI.create(output).scheme || "file://"
+      input_fs_scheme  = (Java::JavaNet::URI.create(input).scheme || "file") + "://"
+      output_fs_scheme = (Java::JavaNet::URI.create(output).scheme || "file") + "://"
       system("#{@hadoop_home}/bin/hadoop \\
        jar         #{@hadoop_home}/contrib/streaming/hadoop-*streaming*.jar                     \\
        -D          mapred.job.name=\"Stream { #{input_fs_scheme}(#{File.basename(input)}) -> #{output_fs_scheme}(#{File.basename(output)}) }\" \\
@@ -268,7 +273,6 @@ module Swineherd
 
       ['org.apache.hadoop.fs.Path',
         'org.apache.hadoop.fs.FileUtil',
-        'java.net.URI',
         'org.apache.hadoop.mapreduce.lib.input.FileInputFormat',
         'org.apache.hadoop.mapreduce.lib.output.FileOutputFormat',
         'org.apache.hadoop.fs.FSDataOutputStream',
