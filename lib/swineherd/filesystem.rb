@@ -35,36 +35,18 @@ module Swineherd
       fs.exists?(path)
     end
 
-    # *cough* FIXME: *cough*
     def self.cp(srcpath,destpath)
       src_fs  = scheme_for(srcpath)
       dest_fs = scheme_for(destpath)
       Logger.new(STDOUT).info "#{src_fs} --> #{dest_fs}"
       if(src_fs.eql?(dest_fs))
         self.get(src_fs).cp(srcpath,destpath)
-      else
-        case [src_fs,dest_fs]
-        when [:hdfs,:file]
-          self.get(:hdfs).copy_to_local(srcpath,destpath)
-        when [:hdfs,:s3]
-          self.get(:hdfs).cp(srcpath,destpath)
-        when [:hdfs,:s3n]
-          self.get(:hdfs).cp(srcpath,destpath)
-        when [:file,:hdfs]
-          self.get(:hdfs).copy_from_local(srcpath,destpath)
-        when [:file,:s3]
-          self.get(:s3).copy_from_local(srcpath,destpath)
-        when [:file,:s3]
-          self.get(:s3).copy_from_local(srcpath,destpath)
-        when [:s3,:hdfs]
-          self.get(:hdfs).cp(srcpath,destpath)
-        when [:s3n,:hdfs]
-          self.get(:hdfs).cp(srcpath,destpath)
-        when [:s3,:file]
-          self.get(:s3).copy_to_local(srcpath,destpath)
-        else
-          raise "Unsupported copy between '#{src_fs}' and '#{dest_fs}' filesystems"
-        end
+      elsif src_fs.eql?(:file)
+        self.get(dest_fs).copy_from_local(srcpath,destpath)
+      elsif dest_fs.eql?(:file)
+        self.get(src_fs).copy_to_local(srcpath,destpath)
+      else #cp between s3/s3n and hdfs can be handled by Hadoop:FileUtil in HadoopFileSystem
+        self.get(:hdfs).cp(srcpath,destpath)
       end
     end
 
