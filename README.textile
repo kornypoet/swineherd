@@ -94,7 +94,7 @@ h3. FileSystem
     fs.exists?('file://foo/bar/baz.txt')
     </code></pre>
 
-h4. Workflow:
+h3. Workflow
 
 A workflow is built using rake @task@ objects that doing nothing more than run scripts. A workflow
 
@@ -103,6 +103,18 @@ A workflow is built using rake @task@ objects that doing nothing more than run s
 * manages intermediate outputs by using the @next_output@ and @latest_output@ methods. See the examples dir for usage.
 * A workflow has a working directory in which all intermediate outputs go
 ** These are named according to the rake task that created them
+
+h3. Config
+
+ In order to use the @S3Filesystem@, Swineherd requires AWS S3 access credentials.
+
+ @~/swineherd.yaml@ or @/etc/swineherd.yaml@
+
+ <pre><code>:
+ aws:
+  access_key: my_access_key
+  secret_key: my_secret_key
+ </code></pre>
 
 h3. TODO
 
