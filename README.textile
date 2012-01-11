@@ -82,10 +82,14 @@ h4. FileSystem
     This implies that the @directory?@ test only succeeds if the directory is non-empty, which clashes with the notion on the UNIX filesystem.
 
     
-    The @Swineherd::Filesystem@ module can be used to @cp@ files between all abstractions, using schemed filepaths (hdfs://,s3://,file://).
+    The @Swineherd::Filesystem@ module implements a generic filesystem abstraction using schemed filepaths (hdfs://,s3://,file://).
 
+    Currently only the following methods are supported for @Swineherd::Filesystem@:
+
+    * @cp@
+    * @exists?@
     
-    For example, instead of doing the following:<pre><code>hdfs = Swineherd::HdfsFilesystem.new
+    For example, instead of doing the following:<pre><code>hdfs = Swineherd::HadoopFilesystem.new
     localfs = Swineherd::LocalFileSystem.new
     hdfs.copy_to_local('foo/bar/baz.txt', 'foo/bar/baz.txt') unless localfs.exists? 'foo/bar/baz.txt'
     </code></pre>            
@@ -94,7 +98,6 @@ h4. FileSystem
     You can do:<pre><code>fs = Swineherd::Filesystem
     fs.cp('hdfs://foo/bar/baz.txt','foo/bar/baz.txt') unless fs.exists?('foo/bar/baz.txt')
     </code></pre>        
-
 
     Note: A path without a scheme is treated as a path on the local filesystem, or use the explicit file:// scheme for clarity.  The following are equivalent:
 
