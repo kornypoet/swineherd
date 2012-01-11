@@ -108,7 +108,8 @@ module Swineherd
         paths_to_copy = ls_r(srcpath)
         common_dir    = common_directory(paths_to_copy)
         paths_to_copy.each do |path|
-          src_key = key_path(path)
+          bkt,key = split_path(path)
+          src_key = key
           dst_key = File.join(dst_key_path, path.gsub(common_dir, ''))
           @s3.interface.move(src_bucket, src_key, dst_bucket, dst_key)
         end
@@ -126,7 +127,8 @@ module Swineherd
         paths_to_copy = ls_r(srcpath)
         common_dir    = common_directory(paths_to_copy)
         paths_to_copy.each do |path|
-          src_key = key_path(path)
+          bkt,key = split_path(path)
+          src_key = key
           dst_key = File.join(dst_key_path, path.gsub(common_dir, ''))
           @s3.interface.copy(src_bucket, src_key, dst_bucket, dst_key)
         end
@@ -171,7 +173,7 @@ module Swineherd
     end
 
     # @srcpath@ is assumed to be on the local filesystem
-    def put srcpath, destpath
+    def copy_from_local srcpath, destpath
       dest_bucket = bucket(destpath)
       if File.exists?(srcpath)
         if File.directory?(srcpath)
@@ -184,6 +186,7 @@ module Swineherd
         raise Errno::ENOENT, "No such file or directory - #{srcpath}"
       end
     end
+    alias :put :copy_from_local
 
     #FIXME: right now this only works on single files
     def copy_to_local srcpath, dstpath
@@ -194,17 +197,24 @@ module Swineherd
       end
       dstfile.close
     end
+    alias :get :copy_to_local
 
     def bucket path
-      URI.parse(path).path.split('/').reject{|x| x.empty?}.first
+      #URI.parse(path).path.split('/').reject{|x| x.empty?}.first
+      split_path(path).first
     end
 
-    def key_path path
-      File.join(URI.parse(path).path.split('/').reject{|x| x.empty?}[1..-1])
+    def key_for path
+      #File.join(URI.parse(path).path.split('/').reject{|x| x.empty?}[1..-1])
+      split_path(path).last
     end
 
     def split_path path
-      path = URI.parse(path).path.split('/').reject{|x| x.empty?}
+      uri = URI.parse(path)
+      base_uri = ""
+      base_uri << uri.host if uri.scheme
+      base_uri << uri.path
+      path = base_uri.split('/').reject{|x| x.empty?}
       [path[0],path[1..-1].join("/")]
     end
 
@@ -253,7 +263,8 @@ module Swineherd
       # Faster than iterating
       #
       def read
-        fs.s3.interface.get_object(fs.bucket(path), fs.key_path(path))
+        bucket,key = fs.split_path(path)
+        fs.s3.interface.get_object(bucket, key)
       end
 
       #
@@ -261,7 +272,8 @@ module Swineherd
       # downloading...
       #
       def readline
-        @handle ||= fs.s3.interface.get_object(fs.bucket(path), fs.key_path(path)).each
+        bucket,key = fs.split_path(path)
+        @handle ||= fs.s3.interface.get_object(bucket, key).each
         begin
           @handle.next
         rescue StopIteration, NoMethodError
@@ -275,9 +287,10 @@ module Swineherd
       end
 
       def close
+        bucket,key = fs.split_path(path)
         if @handle
           @handle.read
-          fs.s3.interface.put(fs.bucket(path), fs.key_path(path), File.open(@handle.path, 'r'))
+          fs.s3.interface.put(bucket, key, File.open(@handle.path, 'r'))
           @handle.close
         end
         @handle = nil

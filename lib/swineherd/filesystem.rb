@@ -17,7 +17,7 @@ module Swineherd
       'file' => Swineherd::LocalFileSystem,
       'hdfs' => Swineherd::HadoopFileSystem,
       's3'   => Swineherd::S3FileSystem,
-      's3n'   => Swineherd::S3FileSystem
+      's3n'  => Swineherd::S3FileSystem
     }
 
     # A factory function that returns an instance of the requested class
@@ -29,9 +29,17 @@ module Swineherd
       end
     end
 
+    def self.exists?(path)
+      fs = self.get(scheme_for(path))
+      Logger.new(STDOUT).info "Using #{fs.class}"
+      fs.exists?(path)
+    end
+
+    # *cough* FIXME: *cough*
     def self.cp(srcpath,destpath)
       src_fs  = scheme_for(srcpath)
       dest_fs = scheme_for(destpath)
+      Logger.new(STDOUT).info "#{src_fs} --> #{dest_fs}"
       if(src_fs.eql?(dest_fs))
         self.get(src_fs).cp(srcpath,destpath)
       else
@@ -44,6 +52,8 @@ module Swineherd
           self.get(:hdfs).cp(srcpath,destpath)
         when [:file,:hdfs]
           self.get(:hdfs).copy_from_local(srcpath,destpath)
+        when [:file,:s3]
+          self.get(:s3).copy_from_local(srcpath,destpath)
         when [:file,:s3]
           self.get(:s3).copy_from_local(srcpath,destpath)
         when [:s3,:hdfs]
@@ -60,7 +70,8 @@ module Swineherd
 
     private
 
-    def scheme_for(path)
+    #defaults to local filesystem :file
+    def self.scheme_for(path)
       scheme = URI.parse(path).scheme
       (scheme && scheme.to_sym) || :file
     end
