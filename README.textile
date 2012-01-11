@@ -39,17 +39,6 @@ The same script can be run using the swineherd executable:
 
 Script variables are specified using @--binding@
 
-
-h4. Workflow:
-
-A workflow is built using rake @task@ objects that doing nothing more than run scripts. A workflow
-
-* can be described with a directed dependency graph
-* has an @id@ which is used to run its tasks idempotently. At the moment it is the responsibility of the running process (or human being) to choose a suitable id.
-* manages intermediate outputs by using the @next_output@ and @latest_output@ methods. See the examples dir for usage.
-* A workflow has a working directory in which all intermediate outputs go
-** These are named according to the rake task that created them
-
 h4. FileSystem
 
     * @file@ - Local file system. Only thoroughly tested on Ubuntu Linux.
@@ -103,35 +92,17 @@ h4. FileSystem
 
     <pre><code>fs.exists?('foo/bar/baz.txt')
     fs.exists?('file://foo/bar/baz.txt')
-    </code></pre>    
+    </code></pre>
 
+h4. Workflow:
 
-Using the filesystem:
+A workflow is built using rake @task@ objects that doing nothing more than run scripts. A workflow
 
-Paths should be absolute.
-
-<pre><code>
-# get a new instance of local filesystem and write to it
-localfs = FileSystem.get(:file)
-localfs.open("mylocalfile", 'w') do |f|
-  f.write("Writing a string to a local file")
-end
-
-# get a new instance of hadoop filesystem and write to it
-hadoopfs = FileSystem.get(:hdfs)
-hadoopfs.open("myhadoopfile", 'w') do |f|
-  f.write("Writing a string to an hdfs file")
-end
-
-# get a new instance of s3 filesystem and write to it
-access_key_id     = '1234abcd'
-secret_access_key = 'foobar1234'
-s3fs = FileSystem.get(:s3, accees_key_id, secret_access_key)
-s3fs.mkpath 'mys3bucket' # bucket must exist
-s3fs.open("mys3bucket/mys3file", 'w') do |f|
-  f.write("Writing a string to an s3 file")
-end
-</code></pre>
+* can be described with a directed dependency graph
+* has an @id@ which is used to run its tasks idempotently. At the moment it is the responsibility of the running process (or human being) to choose a suitable id.
+* manages intermediate outputs by using the @next_output@ and @latest_output@ methods. See the examples dir for usage.
+* A workflow has a working directory in which all intermediate outputs go
+** These are named according to the rake task that created them
 
 h3. TODO
 
