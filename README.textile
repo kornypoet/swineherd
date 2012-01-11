@@ -106,14 +106,14 @@ A workflow is built using rake @task@ objects that doing nothing more than run s
 
 h3. Config
 
- In order to use the @S3Filesystem@, Swineherd requires AWS S3 access credentials.
+ * In order to use the @S3Filesystem@, Swineherd requires AWS S3 access credentials.
 
- @~/swineherd.yaml@ or @/etc/swineherd.yaml@
+ * In @~/swineherd.yaml@ or @/etc/swineherd.yaml@:
 
- <pre><code>:
+ <pre><code>
  aws:
-  access_key: my_access_key
-  secret_key: my_secret_key
+        access_key: my_access_key
+        secret_key: my_secret_key
  </code></pre>
 
 h3. TODO
