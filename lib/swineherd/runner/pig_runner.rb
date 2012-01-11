@@ -20,7 +20,8 @@ module Swineherd
 
       def execute
         ENV['PIG_OPTS'] = [jobconf_options,pig_jobconf_options].flatten.join(" ")
-        puts "ENV['PIG_OPTS'] = '%s'" % [ENV['PIG_OPTS']]
+        Logger.new(STDOUT).info "ENV['PIG_OPTS'] = '%s'" % [ENV['PIG_OPTS']]
+        #        %x["#{command_line}"]
         sh command_line
       end
 

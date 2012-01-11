@@ -28,7 +28,7 @@ describe 'Swineherd::Runner::PigRunner' do
 
     it 'should set -p command line params' do
       @runner.config.params = {:foo => "bar"}
-      @runner.param_options_string.should include '-p FOO=bar'
+      @runner.param_options_string.should include '-param FOO=bar'
     end
 
     it 'should set -exectype run mode' do
