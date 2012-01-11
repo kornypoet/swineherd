@@ -1,4 +1,4 @@
-h1. SwineHerd
+h1. Swineherd
 
 h3. Script
 
@@ -39,7 +39,7 @@ The same script can be run using the swineherd executable:
 
 Script variables are specified using @--binding@
 
-h4. FileSystem
+h3. FileSystem
 
     * @file@ - Local file system. Only thoroughly tested on Ubuntu Linux.
     * @hdfs@ - Hadoop distributed file system. Uses the Apache Hadoop 0.20 API. Requires Jruby.
