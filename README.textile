@@ -44,7 +44,7 @@ h3. FileSystem
     * @file@ - Local file system. Only thoroughly tested on Ubuntu Linux.
     * @hdfs@ - Hadoop distributed file system. Uses the Apache Hadoop 0.20 API. Requires Jruby.
     * @s3@   - Amazon Simple Storage System (s3).
-    * @ftp@
+    * @ftp@  - FTP (Not yet implemented)
 
     All filesystem abstractions implement the following core functions, many taken from the UNIX filesystem:
 
@@ -104,7 +104,7 @@ A workflow is built using rake @task@ objects that doing nothing more than run s
 * A workflow has a working directory in which all intermediate outputs go
 ** These are named according to the rake task that created them
 
-h3. Config
+h4. Config
 
  * In order to use the @S3Filesystem@, Swineherd requires AWS S3 access credentials.
 
@@ -114,4 +114,3 @@ h3. Config
    access_key: my_access_key
    secret_key: my_secret_key
  </code></pre>
-

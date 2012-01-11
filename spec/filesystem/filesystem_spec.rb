@@ -130,6 +130,21 @@ shared_examples_for "an abstract filesystem" do
 
 end
 
+describe Swineherd::FileSystem do
+  let(:fs){ Swineherd::FileSystem }
+  let(:test_dirname){ FS_SPEC_ROOT+"/tmp/test_dir" }
+  let(:test_filename){ File.join(test_dirname,"filename.txt") }
+  let(:test_string){ "foobarbaz" }
+
+  it "implements #cp" do
+    localfs = Swineherd::LocalFileSystem.new
+    localfs.mkdir_p(test_dirname)
+    localfs.open(test_filename, 'w'){|f| f.write(test_string)}
+    s3_filename = "s3://"+S3_TEST_BUCKET+"/new_file.txt"
+    expect{ fs.cp(test_filename, s3_filename) }.to change{ fs.exists?(s3_filename) }.from(false).to(true)
+  end
+end
+
 describe Swineherd::LocalFileSystem do
 
   it_behaves_like "an abstract filesystem" do
@@ -149,7 +164,6 @@ describe Swineherd::S3FileSystem do
   end
 
   describe "an S3FileSystem" do
-
     let(:fs){ Swineherd::S3FileSystem.new }
 
     it "should return false for #file? on a bucket" do
@@ -157,7 +171,6 @@ describe Swineherd::S3FileSystem do
     end
 
   end
-
 end
 
 describe Swineherd::HadoopFileSystem do

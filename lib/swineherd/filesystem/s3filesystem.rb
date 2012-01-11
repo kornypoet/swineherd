@@ -174,14 +174,13 @@ module Swineherd
 
     # @srcpath@ is assumed to be on the local filesystem
     def copy_from_local srcpath, destpath
-      dest_bucket = bucket(destpath)
+      bucket,key = split_path(destpath)
       if File.exists?(srcpath)
         if File.directory?(srcpath)
           raise "NotYetImplemented"
         else
-          key = srcpath
+          @s3.interface.put(bucket, key, File.open(srcpath))
         end
-        @s3.interface.put(dest_bucket, key, File.open(srcpath))
       else
         raise Errno::ENOENT, "No such file or directory - #{srcpath}"
       end
