@@ -185,7 +185,7 @@ module Swineherd
         raise Errno::ENOENT, "No such file or directory - #{srcpath}"
       end
     end
-    alias :put :copy_from_local
+#    alias :put :copy_from_local
 
     #FIXME: right now this only works on single files
     def copy_to_local srcpath, dstpath
@@ -196,7 +196,7 @@ module Swineherd
       end
       dstfile.close
     end
-    alias :get :copy_to_local
+#    alias :get :copy_to_local
 
     def bucket path
       #URI.parse(path).path.split('/').reject{|x| x.empty?}.first

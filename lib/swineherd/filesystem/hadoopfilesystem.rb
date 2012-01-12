@@ -158,7 +158,7 @@ module Swineherd
     def copy_to_local srcfile, dstfile
       @hdfs.copy_to_local_file(Path.new(srcfile), Path.new(dstfile))
     end
-    alias :get :copy_to_local
+#    alias :get :copy_to_local
 
     #
     # Copy local file to hdfs filesystem
@@ -166,7 +166,7 @@ module Swineherd
     def copy_from_local srcfile, dstfile
       @hdfs.copy_from_local_file(Path.new(srcfile), Path.new(dstfile))
     end
-    alias :put :copy_from_local
+#    alias :put :copy_from_local
 
     class HadoopFile
       attr_accessor :handle

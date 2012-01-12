@@ -62,9 +62,8 @@ h3. FileSystem
 
     Additionally, the S3 and HDFS abstractions implement functions for moving files to and from the local filesystem:
 
-    * @copy_to_local@   (@get@)
-    * @copy_from_local@ (@put@)
-
+    * @copy_to_local@  
+    * @copy_from_local@
     
     Note: Since S3 is just a key-value store, it is difficult to preserve the notion of a directory.
     Therefore the @mkdir_p@ function has no purpose, as there cannot be empty directories. @mkdir_p@ currently only ensures that the bucket exists.
@@ -114,3 +113,7 @@ h4. Config
    access_key: my_access_key
    secret_key: my_secret_key
  </code></pre>
+
+ * Or just pass them in when creating the instance: 
+
+ <pre><code>S3 = Swineherd::S3FileSystem.new(:access_key => "my_access_key",:secret_key => "my_secret_key")</code></pre>
