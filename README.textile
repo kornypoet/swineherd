@@ -60,19 +60,20 @@ h3. FileSystem
     * @ls_r@
     * @mkdir_p@
 
-    Additionally, the S3 and HDFS abstractions implement functions for moving files to and from the local filesystem:
-
-    * @copy_to_local@  
-    * @copy_from_local@
-    
-    Note: Since S3 is just a key-value store, it is difficult to preserve the notion of a directory.
+    ** Note: Since S3 is just a key-value store, it is difficult to preserve the notion of a directory.
     Therefore the @mkdir_p@ function has no purpose, as there cannot be empty directories. @mkdir_p@ currently only ensures that the bucket exists.
     This implies that the @directory?@ test only succeeds if the directory is non-empty, which clashes with the notion on the UNIX filesystem.
 
-    
-    The @Swineherd::Filesystem@ module implements a generic filesystem abstraction using schemed filepaths (hdfs://,s3://,file://).
+    * Additionally, the S3 and HDFS abstractions implement functions for moving files to and from the local filesystem:
 
-    Currently only the following methods are supported for @Swineherd::Filesystem@:
+    * @copy_to_local@  
+    * @copy_from_local@
+
+    ** Note: For these methods the destination and source path respectively are assumed to be local, so it does not have to be prefaced by a filescheme.
+    
+    * The @Swineherd::Filesystem@ module implements a generic filesystem abstraction using schemed filepaths (hdfs://,s3://,file://).
+
+    * Currently only the following methods are supported for @Swineherd::Filesystem@:
 
     * @cp@
     * @exists?@
