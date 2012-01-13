@@ -123,7 +123,6 @@ module Swineherd
       src_bucket,src_key_path = split_path(srcpath)
       dst_bucket,dst_key_path = split_path(dstpath)
       mkdir_p(dstpath) unless exists?(dstpath)
-      if directory? srcpath
       if src_key_path.empty? || directory?(path)
         raise Errno::EISDIR,"#{srcpath} is a directory or bucket, use cp_r"
       else

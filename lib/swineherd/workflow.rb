@@ -3,16 +3,15 @@ Swineherd.config.define :iterations,  :type => Integer,  :default => 10,      :d
 
 module Swineherd
   class Workflow
-    attr_accessor :workdir, :outputs, :output_counts
+    attr_accessor :workdir, :outputs,:flow_id
 
     #
     # Create a new workflow and new namespace for this workflow
     #
     def initialize flow_id, &blk
       @flow_id = flow_id
-      @output_counts = Hash.new{|h,k| h[k] = 0}
-      @outputs       = Hash.new{|h,k| h[k] = []}
-      namespace @flow_id do
+      @outputs = Hash.new{|h,k| h[k] = []}
+      namespace flow_id do
         self.instance_eval(&blk)
       end
     end
@@ -21,9 +20,8 @@ module Swineherd
     # Get next logical output of taskname by incrementing internal counter
     #
     def next_output taskname
-      raise "No working directory specified." unless @workdir
-      @outputs[taskname] << "#{@workdir}/#{@flow_id}/#{taskname}-#{@output_counts[taskname]}"
-      @output_counts[taskname] += 1
+      raise "No working directory specified, set #workdir." unless workdir
+      outputs[taskname] << [workdir,flow_id,taskname].join("/")+"-#{outputs[taskname].count}"
       latest_output(taskname)
     end
 
@@ -31,16 +29,17 @@ module Swineherd
     # Get latest output of taskname
     #
     def latest_output taskname
-      @outputs[taskname].last
+      outputs[taskname].last
     end
 
     #
     # Runs workflow starting with taskname
     #
     def run taskname
-      Logger.new(STDOUT).info "Launching workflow task #{@flow_id}:#{taskname} ..."
-      Rake::Task["#{@flow_id}:#{taskname}"].invoke
-      Logger.new(STDOUT).info "Workflow task #{@flow_id}:#{taskname} finished"
+      task = [flow_id,taskname].join(":")
+      Logger.new(STDOUT).info "Launching workflow task #{task}"
+      Rake::Task[task].invoke
+      Logger.new(STDOUT).info "Workflow task #{task} finished"
     end
 
     #
@@ -48,7 +47,7 @@ module Swineherd
     #
     def describe
       Rake::Task.tasks.each do |t|
-        Logger.new(STDOUT).info("Task: #{t.name} [#{t.inspect}]") if t.name =~ /#{@flow_id}/
+        Logger.new(STDOUT).info("Task: #{t.name} [#{t.inspect}]") if t.name =~ /#{flow_id}/
       end
     end
 

@@ -33,12 +33,12 @@ flow = Workflow.new(1) do
   #
   task :pagerank_iterate => [:pagerank_initialize] do
     iterator.params[:curr_iter_file] = latest_output(:pagerank_initialize)
-    iterator.run_mode = :local
+    iterator.run_mode = :local #you can specify the run mode ahead of time or when you call #run
     3.times do
       iterator.params[:damp] = '0.85f'
       iterator.params[:next_iter_file] = next_output(:pagerank_iterate)
       iterator.run unless localfs.exists? latest_output(:pagerank_iterate)
-      iterator.flush!
+      iterator.flush! #clears #params
       iterator.params[:curr_iter_file] = latest_output(:pagerank_iterate)
     end
   end
