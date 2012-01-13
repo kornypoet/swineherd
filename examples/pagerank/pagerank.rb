@@ -2,10 +2,11 @@
 
 $LOAD_PATH << '../../lib'
 require 'swineherd';include Swineherd
+workdir = File.join(File.dirname(__FILE__),"pagerank_example")
 
-flow = Workflow.new(1) do
+flow = Workflow.new(1,workdir) do
 
-  # The filesystems we're going to be working with
+# The filesystems we're going to be working with
 #  hdfs    = Swineherd::FileSystem.get(:hdfs)
   localfs = Swineherd::FileSystem.get(:file)
 
@@ -22,7 +23,7 @@ flow = Workflow.new(1) do
   # converted into command-line args for the pig interpreter.
   #
   task :pagerank_initialize do
-    initializer.params[:adjlist] = "data/seinfeld_network.tsv"
+    initializer.params[:adjlist]  = "data/seinfeld_network.tsv"
     initializer.params[:initgrph] = next_output(:pagerank_initialize)
     initializer.run(:run_mode => :local) unless localfs.exists? latest_output(:pagerank_initialize)
   end
@@ -48,6 +49,7 @@ flow = Workflow.new(1) do
   # links). Notice how every wukong script MUST have an input but pig scripts do
   # not.
   #
+
   task :cut_off_adjacency_list => [:pagerank_iterate] do
     finisher.input  << latest_output(:pagerank_iterate)
     finisher.output << next_output(:cut_off_adjacency_list)
@@ -79,16 +81,14 @@ flow = Workflow.new(1) do
   # extension. Ensmarten me as to the right way to handle that?
   #
   task :plot_results =>  [:pull_down_results] do
-    plotter.attributes = {
+    plotter.binding = {
       :pagerank_data => latest_output(:pull_down_results),
       :plot_file     => next_output(:plot_results), # <-- this will be a png...
       :raw_rank      => "aes(x=d$V2)"
     }
-    plotter.run(:hadoop) unless localfs.exists? latest_output(:plot_results)
+    plotter.run(:run_mode => :hadoop) unless localfs.exists? latest_output(:plot_results)
   end
 
 end
 
-flow.workdir = File.join(File.dirname(__FILE__),"pagerank_example")
-#flow.describe
 flow.run(:pagerank_iterate)

@@ -8,8 +8,9 @@ module Swineherd
     #
     # Create a new workflow and new namespace for this workflow
     #
-    def initialize flow_id, &blk
+    def initialize flow_id, workdir,&blk
       @flow_id = flow_id
+      @workdir = workdir
       @outputs = Hash.new{|h,k| h[k] = []}
       namespace flow_id do
         self.instance_eval(&blk)
