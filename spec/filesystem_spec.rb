@@ -1,6 +1,6 @@
 require 'spec_helper'
 FS_SPEC_ROOT = File.dirname(__FILE__)
-S3_TEST_BUCKET = 'swineherd-bucket-test'
+S3_TEST_BUCKET = 'swineherd-bucket-test' #You'll have to set this to something else
 
 shared_examples_for "an abstract filesystem" do
 
