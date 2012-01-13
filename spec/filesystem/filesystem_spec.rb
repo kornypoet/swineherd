@@ -138,10 +138,13 @@ describe Swineherd::FileSystem do
 
   it "implements #cp" do
     localfs = Swineherd::LocalFileSystem.new
+    s3_fs = Swineherd::S3FileSystem.new
     localfs.mkdir_p(test_dirname)
     localfs.open(test_filename, 'w'){|f| f.write(test_string)}
     s3_filename = "s3://"+S3_TEST_BUCKET+"/new_file.txt"
     expect{ fs.cp(test_filename, s3_filename) }.to change{ fs.exists?(s3_filename) }.from(false).to(true)
+    localfs.rm_r(test_dirname) if localfs.exists?(test_dirname)
+    s3_fs.rm(s3_filename)
   end
 end
 
