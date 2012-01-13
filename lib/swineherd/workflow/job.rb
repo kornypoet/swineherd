@@ -5,38 +5,14 @@ module Swineherd
   #
   class Job
 
-    #
-    # Initialize job, fill variables, and create rake task
-    #
+    attr_accessor :name,:script,:dependencies,:job_id
+
     def initialize job_id, &blk
       @job_id       = job_id
-      @name         = ''
       @dependencies = []
-      @script       = ''
       self.instance_eval(&blk)
       raketask
       handle_dependencies
-    end
-
-    #
-    # Will be the name of the rake task
-    #
-    def name name = nil
-      return @name unless name
-      @name = name
-    end
-
-    def script script = nil
-      return @script unless script
-      @script = script
-    end
-
-    #
-    # An array of job names as dependencies
-    #
-    def dependencies dependencies = nil
-      return @dependencies unless dependencies
-      @dependencies = dependencies
     end
 
     def handle_dependencies
@@ -45,7 +21,7 @@ module Swineherd
     end
 
     def cmd
-      @script.cmd
+      @script.runner.command_line
     end
 
     #

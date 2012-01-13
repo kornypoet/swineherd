@@ -34,6 +34,7 @@ module Swineherd
       config.options_for(:hadoop_jobconf).inject([]){ |options,option| options << jobconf_for(option[0]) }
     end
 
+    #FIXME: Currently doesn't accept arbitrary jobconf commands, like "mapred.min.split.size".
     def jobconf_for option
       unless config[option].nil?
         "-D%s=%s" % [config.definition_of(option)[:description], config[option]]

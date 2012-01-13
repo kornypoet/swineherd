@@ -3,7 +3,7 @@ Swineherd.config.define :iterations,  :type => Integer,  :default => 10,      :d
 
 module Swineherd
   class Workflow
-    attr_accessor :workdir, :outputs,:flow_id
+    attr_accessor :workdir,:outputs,:flow_id
 
     #
     # Create a new workflow and new namespace for this workflow
@@ -21,7 +21,8 @@ module Swineherd
     #
     def next_output taskname
       raise "No working directory specified, set #workdir." unless workdir
-      outputs[taskname] << [workdir,flow_id,taskname].join("/")+"-#{outputs[taskname].count}"
+      taskcount = outputs[taskname].count
+      outputs[taskname] << [workdir,flow_id,taskname].join("/")+"-#{taskcount}"
       latest_output(taskname)
     end
 
@@ -37,9 +38,9 @@ module Swineherd
     #
     def run taskname
       task = [flow_id,taskname].join(":")
-      Logger.new(STDOUT).info "Launching workflow task #{task}"
+      Logger.new(STDOUT).info "Launching workflow task '#{task}'"
       Rake::Task[task].invoke
-      Logger.new(STDOUT).info "Workflow task #{task} finished"
+      Logger.new(STDOUT).info "Workflow task '#{task}' finished"
     end
 
     #
