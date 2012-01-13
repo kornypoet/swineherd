@@ -1,6 +1,6 @@
 module Swineherd
   class LocalFileSystem
-#    include Swineherd::BaseFileSystem
+    #include Swineherd::BaseFileSystem
 
     def initialize *args
     end
@@ -14,6 +14,7 @@ module Swineherd
       Dir[path].inject(0){|s,f|s+=File.size(f)}
     end
 
+    #A leaky abstraction, should be called rm_rf if it calls rm_rf
     def rm_r path
       FileUtils.rm_rf path
     end

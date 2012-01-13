@@ -123,7 +123,19 @@ module Swineherd
       src_bucket,src_key_path = split_path(srcpath)
       dst_bucket,dst_key_path = split_path(dstpath)
       mkdir_p(dstpath) unless exists?(dstpath)
-      if(directory?(srcpath))
+      if directory? srcpath
+      if src_key_path.empty? || directory?(path)
+        raise Errno::EISDIR,"#{srcpath} is a directory or bucket, use cp_r"
+      else
+        @s3.interface.copy(src_bucket, src_key_path, dst_bucket, dst_key_path)
+      end
+    end
+
+    def cp_r srcpath, dstpath
+      src_bucket,src_key_path = split_path(srcpath)
+      dst_bucket,dst_key_path = split_path(dstpath)
+      mkdir_p(dstpath) unless exists?(dstpath)
+      if directory? srcpath
         paths_to_copy = ls_r(srcpath)
         common_dir    = common_directory(paths_to_copy)
         paths_to_copy.each do |path|
@@ -135,9 +147,6 @@ module Swineherd
       else
         @s3.interface.copy(src_bucket, src_key_path, dst_bucket, dst_key_path)
       end
-    end
-
-    def cp_r
     end
 
     #This is a bit funny, there's actually no need to create a 'path' since

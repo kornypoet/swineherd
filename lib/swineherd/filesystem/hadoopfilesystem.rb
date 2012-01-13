@@ -81,6 +81,7 @@ module Swineherd
     end
 
     def cp_r srcpath,dstpath
+      cp srcpath,dstpath
     end
 
     def mkdir_p path
