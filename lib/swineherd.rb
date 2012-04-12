@@ -1,8 +1,9 @@
-require 'rubygems'
 require 'configliere' ; Configliere.use(:commandline, :env_var, :define,:config_file)
 require 'rake'
 require 'logger'
 require 'erubis'
+require 'swineherd-fs'
+
 
 #Merge in system and user settings
 SYSTEM_CONFIG_PATH = "/etc/swineherd.yaml" unless defined?(SYSTEM_CONFIG_PATH)
@@ -31,5 +32,4 @@ Swineherd.config.define :template_root, :default => "/tmp/",:description => "Whe
 
 require 'swineherd/script'
 require 'swineherd/runner'
-require 'swineherd/filesystem'
 require 'swineherd/workflow'

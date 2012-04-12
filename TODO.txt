@@ -6,5 +6,3 @@
 ** a @job@ will do nothing more than execute the ruby code in it's (run?) block, unless @not_if@ is true
 ** this way we can put @script@ objects inside a @job@ and only run under certain conditions that the user specifies when
    they create the @job@
-   
-* Implement FTP filesystem interface
