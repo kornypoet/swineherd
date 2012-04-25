@@ -1,22 +1,50 @@
-Swineherd.config.define :flow_id,     :required => true,                     :description => "Flow id required to make run of workflow unique"
-Swineherd.config.define :iterations,  :type => Integer,  :default => 10,      :description => "Number of pagerank iterations to run"
-
 module Swineherd
   class Workflow
-    attr_accessor :workdir,:outputs,:flow_id
 
-    #
-    # Create a new workflow and new namespace for this workflow
-    #
-    def initialize flow_id, workdir,&blk
-      @flow_id = flow_id
-      @workdir = workdir
-      @outputs = Hash.new{|h,k| h[k] = []}
-      namespace flow_id do
+    attr_accessor :flow_dir, :flow_name, :input, :task_to_run
+
+    def initialize(options = {}, &blk)
+      @flow_dir  = File.dirname($0)
+      @flow_name = File.basename($0, '.rb').to_sym
+      Swineherd.config.read(
+      Swineherd.config.merge!(options)
+      Swineherd.config.merge!(:flow_name => @flow_name)
+      Swineherd.config.resolve!
+      initial_input(options[:initial_input])
+      namespace(flow_name) do
         self.instance_eval(&blk)
+      end
+      @task_to_run = options[:run]
+    end
+
+    def initial_input(path)
+      
+      @input = path
+    end
+
+    def extract_filename(definition)
+      case definition
+      when Symbol || String
+        filename =  "#{flow_dir}/scripts/#{definition.to_s}"
+      when Hash
+        filename = "#{flow_dir}/scripts/#{definition.keys.first.to_s}"
+      else
+        raise "Invalid task definition: #{definition}"
       end
     end
 
+    def wukong_task(definition, &blk)
+      filename = extract_filename(definition) << '.rb.erb'
+      script   = WukongScript.new(filename, &blk)
+      create_task(script, definition)
+    end
+
+    def create_task(script, definition)
+      task definition do
+        script.run unless script.rules_met?
+      end
+    end
+    
     #
     # Get next logical output of taskname by incrementing internal counter
     #
@@ -37,6 +65,12 @@ module Swineherd
     #
     # Runs workflow starting with taskname
     #
+    def run!
+      p Swineherd.config
+      p self
+      Rake::Task[flow_name.to_s << ":" << @task_to_run.to_s].invoke
+    end
+
     def run taskname
       task = [flow_id,taskname].join(":")
       Logger.new(STDOUT).info "Launching workflow task '#{task}'"

@@ -1,19 +1,40 @@
 module Swineherd
   class Script
 
-    attr_reader   :raw_script_filename
-    attr_accessor :binding
+    attr_accessor :binding, :raw_script_filename
 
-    def initialize(raw_script_filename,binding={})
-      @raw_script_filename = raw_script_filename
-      @binding = binding
+    def initialize(filename, &blk)
+      @raw_script_filename = filename
+      @binding = {} 
+      self.instance_eval(&blk) if blk
     end
 
+    def bindings(hsh={})
+      @binding = Swineherd.config.merge(hsh)
+    end
+
+    def evaluated_script_contents
+      Erubis::Eruby.new(File.read(raw_script_filename)).result(binding)
+    end
+
+    def swineherd_input
+      Rake::Task[Swineherd.config[:flow_name].to_s << ':' << File.basename(raw_script_filename, '.rb.erb')].prerequisites
+    end
+
+    def swineherd_output
+      File.join(Swineherd.config[:output_root], Swineherd.config[:flow_name].to_s, File.basename(raw_script_filename), 'output')
+    end
+    
+    def rules_met?
+      binding[:runit]
+    end
+    
     def run(settings={})
+      binding.merge!(:output => swineherd_output, :input => swineherd_input)
       write
-      runner.config.merge!(settings)
-      #Logger.new(STDOUT).info "\n#{evaluated_script_contents}"
-      runner.execute
+      Log.info("\n" << evaluated_script_contents) if Swineherd.config.verbose == true 
+      # runner.config.merge!(settings)
+      # runner.execute
     end
 
     def runner
@@ -32,20 +53,14 @@ module Swineherd
     end
 
     def filename
-      @template_filename ||= Swineherd.config.template_root+[Time.now.to_i,$$,File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-")
-    end
-
-    def evaluated_script_contents
-      Erubis::Eruby.new(File.read(raw_script_filename)).result(self.binding)
+      @template_filename ||= File.join(Swineherd.config.template_dir, [Time.now.to_i, $$, File.basename(raw_script_filename).gsub(/.erb$/,'')].join("-"))
     end
 
     private
 
     def template_file
-      @template_file ||= File.open(filename,"w+"){|file| file.write(evaluated_script_contents);file}
+      @template_file ||= File.open(filename, "w+"){ |file| file.write(evaluated_script_contents) ; file }
     end
 
   end
 end
-
-require 'swineherd/script/pig_script'
